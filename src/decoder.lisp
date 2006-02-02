@@ -1,21 +1,13 @@
 (in-package :json)
+(defparameter *json-rules* nil)
 
 (defparameter *json-object-factory* #'(lambda () nil))
 (defparameter *json-object-factory-add-key-value* #'(lambda (obj key value)
                                                       (push (cons (intern (string-upcase key))
-                                                                  value) obj)))
+                                                                  value)
+                                                            obj)))
 (defparameter *json-object-factory-return* #'(lambda (obj) (nreverse obj)))
-(defparameter *json-make-big-number* #'(lambda (number-string) (cons 'big-num number-string)))
-
-(defparameter *json-escaped-chars*
-  '((#\" . #\")
-    (#\\ . #\\)
-    (#\/ . #\/)
-    (#\b . #\Backspace)
-    (#\f . #\Form)
-    (#\n . #\Newline)
-    (#\r . #\Return)
-    (#\t . #\Tab)))
+(defparameter *json-make-big-number* #'(lambda (number-string) (format nil "BIGNUMBER:~a" number-string)))
 
 (defun decode-json-from-string (json-string)
   (with-input-from-string (stream json-string)
@@ -35,11 +27,10 @@
     object))
 
 ;;-----------------------
-(defparameter *json-rules* nil)
+
 
 (defun add-json-dispatch-rule (character fn)
   (push (cons character fn) *json-rules*))
-
 
 (add-json-dispatch-rule #\t #'(lambda (stream) (read-constant stream "true" t)))
 
@@ -132,9 +123,6 @@
   (with-output-to-string (ostr)
     (dotimes (x n)
       (write-char (read-char stream) ostr))))
-
-(defun json-escaped-char-to-lisp(json-escaped-char)
-    (cdr (assoc json-escaped-char *json-escaped-chars*)))
   
 (defun read-json-chars(stream terminators)
   (read-chars-until stream :terminator-fn #'(lambda (ch)

@@ -1,6 +1,5 @@
 (in-package :json-test)
 
-(def-suite json)
 (in-suite json)
 
 ;; Test decoder
@@ -72,7 +71,7 @@ returned!"
   (is (= (decode-json-from-string "2e40") 2d40));;Coerced to double
   (is (equalp (decode-json-from-string "2e444") (funcall *json-make-big-number* "2e444"))))
 
-(defparameter *json-test-files-path* *load-truename*)
+(defparameter *json-test-files-path* *load-pathname*)
 
 (defun test-file (name)
   (make-pathname :name name :type "json" :defaults *json-test-files-path*))
@@ -113,3 +112,32 @@ returned!"
         (5am:signals error 
           (decode-file (test-file (format nil "fail~a" x)))))))
 
+(defun contents-of-file(file)
+  (with-open-file (stream file :direction :input)
+     (let ((s (make-string (file-length stream))))
+      (read-sequence s stream)
+      s)))
+
+(test decoder-performance  
+  (let* ((json-string (contents-of-file (test-file "pass1")))
+         (chars (length json-string))
+         (count 1000))
+    (format t "Decoding ~a varying chars from memory ~a times." chars count)
+    (time
+     (dotimes (x count) 
+       (let ((discard-soon (decode-json-from-string json-string)))
+         (funcall #'identity discard-soon))))));Do something so the compiler don't optimize too much
+
+;;#+when-u-want-profiling
+;;(defun profile-decoder-performance()
+;;  #+sbcl
+;;  (progn
+;;    (let ((json-string (contents-of-file (test-file "pass1")))
+;;          (count 10))
+;;      (format t "Parsing test-file pass1 from memory ~a times." count)
+;;      (sb-sprof:with-profiling ()
+;;        (dotimes (x count) 
+;;          (let ((discard-soon (decode-json-from-string json-string)))
+;;            (funcall #'identity discard-soon))))
+;;      (sb-sprof:report)
+;;      nil)))

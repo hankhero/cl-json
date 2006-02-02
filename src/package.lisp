@@ -7,6 +7,9 @@
     #:*json-make-big-number*
     #:decode-json
     #:decode-json-strict
-    #:decode-json-from-string))
+    #:decode-json-from-string
 
-
+    #:encode-json
+    #:encode-json-to-string
+    #:encode-json-alist
+    ))

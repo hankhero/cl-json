@@ -14,11 +14,15 @@
   :components ((:static-file "json.asd")
                (:module :src
                 :components ((:file "package")
-                             (:file "decoder" :depends-on ("package"))))))
+                             (:file "common" :depends-on ("package"))
+                             (:file "decoder" :depends-on ("common"))
+                             (:file "encoder" :depends-on ("common"))))))
 
 (defsystem :json.test
   :depends-on (:json :fiveam)
   :components ((:module :t
                :components ((:file "package")
-                            (:file "testdecoder" :depends-on ("package"))))))
+                            (:file "testjson" :depends-on ("package" "testdecoder" "testencoder"))
+                            (:file "testdecoder" :depends-on ("package"))
+                            (:file "testencoder" :depends-on ("package"))))))
 
