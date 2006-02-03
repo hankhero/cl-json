@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+ <head>
+ <title>CL-JSON</title>
+ <link rel="stylesheet" type="text/css" href="style.css"/>
+ <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+</head>
+
+<body>
+ <div class="header">
+  <h1>CL-JSON</h1>
+  <h2>A JSON parser and generator in Common-Lisp.</h2>
+
+ </div>
+
+ <h3>What is JSON?</h3>
+
+<p><a href="http://www.crockford.com/JSON">JSON</a> is a language independent text format for data-interchange. JSON is especially convenient in web applications, since it is a subset of the literal object notation of <a href="http://www.crockford.com/JSON/js.html">ECMAScript</a>. It can also be an alternative to XML. JSON has good open-source support in many languages.</p>
+<h3>Why not use XML instead?</h3>
+<li>Some find JSON lighter and more simple, see this <a href="http://www.crockford.com/JSON/xml.html">comparison.</a></li>
+<h3>Why not use s-expressions instead?</h3>
+<ul>
+<li>Many people find parentheses difficult, but brackets and braces easy. That has led to many implementations of JSON. There is no format based on s-expressions implemented in over 20 languages (yet!).</li>
+<li>A simple and very fast JSON parser in JavaScript looks like this:<pre>eval('(' + aJSONtext + ')')</pre>
+Even a seasoned lisper may find it difficult to make a shorter JavaScript parser for s-expressions.</li>
+</ul>
+
+ <h3>Mailing Lists</h3>
+ <ul>
+  <li>
+   <a
+    href="http://www.common-lisp.net/mailman/listinfo/cl-json-devel">
+    cl-json-devel</a><br/>for developers and users.</li>
+  <li>
+   <a
+    href="http://www.common-lisp.net/mailman/listinfo/cl-json-announce">
+    cl-json-announce</a><br/>for announcements.</li>
+
+ </ul>
+ <h3>Documentation</h3>
+ <p>
+ You can use any of these functions:
+ <pre>
+    decode-json
+    decode-json-strict
+    decode-json-from-string
+    encode-json
+    encode-json-to-string
+    encode-json-alist
+</pre>
+ For examples, see the <a href="http://common-lisp.net/project/bese/FiveAM.html">FiveAM</a> based testcases.
+ </p>
+ <h3>Where is it</h3>
+ <p>A <a href="http://www.darcs.net/">Darcs</a> repository is available.<pre>darcs get http://common-lisp.net/project/cl-json/darcs/cl-json
+</pre>
+ <p>The latest release can be downloaded <a href="http://www.cliki.net/cl-json">here</a>.</p>
+ <p>You can also install it by asdf-install.</p>
+
+   <div class="footer">
+     <p>Henrik Hjelte</p> 2. Feb. 2006
+   </div>
+
+   <div class="check">
+     <a href="http://validator.w3.org/check/referer">
+        Valid XHTML 1.0 Strict</a>
+  </div
+ </body>
+</html>
