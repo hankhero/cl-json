@@ -1,11 +1,11 @@
 (in-package :json)
 
 (defparameter *json-lisp-escaped-chars*
-  '((#\" . #\")
+  `((#\" . #\")
     (#\\ . #\\)
     (#\/ . #\/)
     (#\b . #\Backspace)
-    (#\f . #\Form)
+    (#\f . ,(code-char 12))
     (#\n . #\Newline)
     (#\r . #\Return)
     (#\t . #\Tab)))
