@@ -42,7 +42,7 @@
          (if ,first-element
              (setf ,first-element nil)
              (write-char #\, ,strm))
-         (write-json-string name ,strm)
+         (encode-json name ,strm)
          (write-char #\: ,strm)
          (encode-json value ,strm)))
       (write-char #\} ,strm))))

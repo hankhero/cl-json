@@ -53,18 +53,24 @@
                           (normalize encoded)))))))
 
 
-
-(test test-encode-json-alist()
+(test test-encode-json-alist
       (let ((alist `((:HELLO . 100)(:hi . 5)))
             (expected "{\"hello\":100,\"hi\":5}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
 
-(test test-encode-json-alist-string()
+(test test-encode-json-alist-two
+      (let ((alist `((HELLO . 100)(hi . 5)))
+            (expected "{\"hello\":100,\"hi\":5}"))
+        (is (string= (with-output-to-string (s) (encode-json-alist alist s))
+                     expected))))
+
+(test test-encode-json-alist-string
       (let ((alist `((:hello . "hej")(:hi . "tjena")))
             (expected "{\"hello\":\"hej\",\"hi\":\"tjena\"}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
+
 
 (test encode-pass-2
   (decode-then-encode "[[[[[[[[[[[[[[[[[[[\"Not too deep\"]]]]]]]]]]]]]]]]]]]"))
@@ -131,6 +137,18 @@
   ;;But you can use vectors
   (is (string= (encode-json-to-string (vector 1 2))
                "[1,2]")))
+
+(test hash-table-symbol
+  (let ((ht (make-hash-table)))
+    (setf (gethash 'x ht) 5)
+    (is (string= (encode-json-to-string ht)
+                 "{\"X\":5}"))))
+
+(test hash-table-string
+  (let ((ht (make-hash-table :test #'equal)))
+    (setf (gethash "lower x" ht) 5)
+    (is (string= (encode-json-to-string ht)
+                 "{\"lower x\":5}"))))
 
 
 (defparameter *encode-performace-test-string*
