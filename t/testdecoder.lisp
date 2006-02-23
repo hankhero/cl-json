@@ -35,8 +35,8 @@ returned!"
   (is-false (decode-json-from-string "[]")))
 
 (test json-object
-  (is (equalp '((hello . "hej")
-                (hi . "tjena"))
+  (is (equalp '((:hello . "hej")
+                (:hi . "tjena"))
        (decode-json-from-string " { \"hello\" : \"hej\" ,
                        \"hi\" : \"tjena\"
                      }")))

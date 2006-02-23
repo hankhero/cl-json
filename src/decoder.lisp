@@ -3,7 +3,8 @@
 
 (defparameter *json-object-factory* #'(lambda () nil))
 (defparameter *json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                      (push (cons (intern (string-upcase key))
+                                                      (push (cons (intern (string-upcase key)
+                                                                          (find-package 'keyword))
                                                                   value)
                                                             obj)))
 (defparameter *json-object-factory-return* #'(lambda (obj) (nreverse obj)))
