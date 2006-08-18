@@ -8,7 +8,7 @@
 (defsystem :json
   :name "cl-json"
   :description "JSON in Lisp. JSON (JavaScript Object Notation) is a lightweight data-interchange format."
-  :version "0.1.2"
+  :version "0.2.1"
   :author "Henrik Hjelte <henrik@evahjelte.com>"
   :licence "MIT"
   :components ((:static-file "json.asd")
@@ -16,13 +16,24 @@
                 :components ((:file "package")
                              (:file "common" :depends-on ("package"))
                              (:file "decoder" :depends-on ("common"))
-                             (:file "encoder" :depends-on ("common"))))))
+                             (:file "encoder" :depends-on ("common"))
+                             (:file "utils" :depends-on ("decoder" "encoder"))))))
+(defsystem :json-rpc
+  :name "cl-json-rpc"
+  :description "JSON-RPC in Lisp. JSON-RPC is a lightweight remote procedure call protocol. It's designed to be simple!"
+  :version "0.2.1"
+  :author "Henrik Hjelte <henrik@evahjelte.com>"
+  :licence "MIT"
+  :depends-on (:json)
+  :components ((:module :src
+                :components ((:file "json-rpc")))))
 
 (defsystem :json.test
-  :depends-on (:json :fiveam)
+  :depends-on (:json :json-rpc :fiveam )
   :components ((:module :t
                :components ((:file "package")
-                            (:file "testjson" :depends-on ("package" "testdecoder" "testencoder"))
+                            (:file "testjson" :depends-on ("package" "testdecoder" "testencoder" "testmisc"))
+                            (:file "testmisc" :depends-on ("package" "testdecoder" "testencoder"))
                             (:file "testdecoder" :depends-on ("package"))
                             (:file "testencoder" :depends-on ("package"))))))
 

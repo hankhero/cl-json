@@ -66,6 +66,11 @@
   (with-alist-iterator (gen-fn alist)
     (write-json-object gen-fn stream)))
 
+(defun encode-json-alist-to-string(alist)
+  (with-output-to-string (stream)
+    (encode-json-alist alist stream)))
+
+
 (defun write-json-string (s stream)
   (write-char #\" stream)
   (if (stringp s)
