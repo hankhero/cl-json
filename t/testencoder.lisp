@@ -71,6 +71,11 @@
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
 
+(test test-encode-json-alist-camel-case
+      (let ((alist `((:hello-message . "hej")(*also-starting-with-upper . "hej")))
+            (expected "{\"helloMessage\":\"hej\",\"AlsoStartingWithUpper\":\"hej\"}"))
+        (is (string= (with-output-to-string (s) (encode-json-alist alist s))
+                     expected))))
 
 (test encode-pass-2
   (decode-then-encode "[[[[[[[[[[[[[[[[[[[\"Not too deep\"]]]]]]]]]]]]]]]]]]]"))
@@ -140,9 +145,9 @@
 
 (test hash-table-symbol
   (let ((ht (make-hash-table)))
-    (setf (gethash 'x ht) 5)
+    (setf (gethash 'symbols-are-now-converted-to-camel-case ht) 5)
     (is (string= (encode-json-to-string ht)
-                 "{\"X\":5}"))))
+                 "{\"symbolsAreNowConvertedToCamelCase\":5}"))))
 
 (test hash-table-string
   (let ((ht (make-hash-table :test #'equal)))
@@ -182,3 +187,6 @@
        (dotimes (x count) 
          (let ((discard-soon (encode-json-to-string lisp-obj)))
            (funcall #'identity discard-soon)))))))
+
+
+

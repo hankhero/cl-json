@@ -18,7 +18,8 @@
                              (:file "decoder" :depends-on ("common"))
                              (:file "encoder" :depends-on ("common"))
                              (:file "utils" :depends-on ("decoder" "encoder"))
-                             (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder"))))))
+                             (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder")))))
+  :depends-on (:parenscript))
 
 (defsystem :json.test
   :depends-on (:json :fiveam )

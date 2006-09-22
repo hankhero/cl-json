@@ -1,5 +1,7 @@
 (in-package :json)
 
+(defparameter *symbol-to-string-fn* #'js::symbol-to-js)
+
 (defgeneric encode-json (object stream))
 
 (defun encode-json-to-string(object)
@@ -16,7 +18,7 @@
   (cond
     ((null s) (write-json-chars "null" stream))
     ((eq 't s) (write-json-chars "true" stream))
-    (t (write-json-string (string s) stream))))
+    (t (write-json-string (funcall *symbol-to-string-fn* s) stream))))
 
 (defmethod encode-json((s sequence ) stream)
   (let ((first-element t))
@@ -57,8 +59,7 @@
       (flet ((,generator-fn ()
                (let ((cur (pop ,stack)))
                  (if cur
-                     (values t (string-downcase (symbol-name (car cur)))
-                             (cdr cur))
+                     (values t (car cur) (cdr cur))
                      nil))))
         ,@body))))
         
