@@ -19,6 +19,13 @@
     (is-false sub-obj.missing-property)
     (is (string= sub-obj.even-deeper-obj.some-stuff "Guten Tag"))))
 
+(test test-json-bind-with-alist
+  (let ((the-alist (decode-json-from-string "{\"hello\":100,\"hi\":5}")))
+    (json-bind (hello hi ciao) the-alist
+      (is (= hello 100))
+      (is (= hi 5))
+      (is-false ciao))))
+
 (test assoc-lookup
   (is (equalp '(json::cdas widget-id (json::cdas parent data))
               (macroexpand-1 '(json::assoc-lookup parent widget-id data)))))
