@@ -1,7 +1,7 @@
 (in-package :json)
 
 (defun json-intern (string)
-  (intern (string-upcase string)
+  (intern (camel-case-to-lisp string)
           (find-package 'keyword)))
 
 (defparameter *json-rules* nil)
@@ -137,3 +137,22 @@
                                                 (code-char (parse-integer (read-n-chars stream 5) :start 1 :radix 16))
                                                 (json-escaped-char-to-lisp (read-char stream)))
                                             ch))))
+
+(defun camel-case-to-lisp (string)
+  "Converts a string in camelCase to the same lisp-friendly syntax used in parenscript.
+
+(camel-case-to-string \"camelCase\") -> \"CAMEL-CASE\"
+(camel-case-to-string \"CamelCase\") -> \"*CAMEL-CASE\"
+(camel-case-to-string \"dojo.widget.TreeNode\") -> \"DOJO.WIDGET.*TREE-NODE\"
+"
+  (with-output-to-string (out)
+    (loop for ch across string
+          with last-char do
+          (if (upper-case-p ch)
+              (progn 
+                (if (and last-char (lower-case-p last-char))
+                    (write-char #\- out)
+                    (write-char #\* out))
+                (write-char ch out))
+              (write-char (char-upcase ch) out))
+          (setf last-char ch))))

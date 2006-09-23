@@ -58,6 +58,14 @@ returned!"
     (is (string= "hej" (gethash 'hello obj)))
     (is (string= "tjena" (gethash 'hi obj)))))
 
+(test json-object-camel-case
+  (is (equalp '((:hello-key . "hej")
+                (:*hi-starts-with-upper-case . "tjena"))
+       (decode-json-from-string " { \"helloKey\" : \"hej\" ,
+                       \"HiStartsWithUpperCase\" : \"tjena\"
+                     }"))))
+
+
 
 
 (test json-number
