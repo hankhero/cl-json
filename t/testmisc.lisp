@@ -8,6 +8,22 @@
     (is-false ciao)))
 
 
+(test test-json-bind-advanced
+  (json-bind (hello-world
+              sub-obj.property
+              sub-obj.missing-property
+              sub-obj.even-deeper-obj.some-stuff)
+      "{\"helloWorld\":100,\"subObj\":{\"property\":20,\"evenDeeperObj\":{\"someStuff\":\"Guten Tag\"}}}"
+    (is (= hello-world 100))
+    (is (= sub-obj.property 20))
+    (is-false sub-obj.missing-property)
+    (is (string= sub-obj.even-deeper-obj.some-stuff "Guten Tag"))))
+
+(test assoc-lookup
+  (is (equalp '(json::cdas widget-id (json::cdas parent data))
+              (macroexpand-1 '(json::assoc-lookup parent widget-id data)))))
+
+
 (defun-json-rpc foo (x y)
   "Adds two numbers"
   (+ x y))
