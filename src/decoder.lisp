@@ -1,11 +1,14 @@
 (in-package :json)
+
+(defun json-intern (string)
+  (intern (string-upcase string)
+          (find-package 'keyword)))
+
 (defparameter *json-rules* nil)
 
 (defparameter *json-object-factory* #'(lambda () nil))
 (defparameter *json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                      (push (cons (intern (string-upcase key)
-                                                                          (find-package 'keyword))
-                                                                  value)
+                                                      (push (cons (json-intern key) value)
                                                             obj)))
 (defparameter *json-object-factory-return* #'(lambda (obj) (nreverse obj)))
 (defparameter *json-make-big-number* #'(lambda (number-string) (format nil "BIGNUMBER:~a" number-string)))
