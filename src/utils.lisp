@@ -37,7 +37,7 @@
            (mapcar #'json-intern (split-by-dots (symbol-as-string variable)))))
      (let ((a-list (gensym)))
       `(let ((,a-list (if (stringp ,json-string-or-alist)
-                          (decode-json-from-string ,json-string)
+                          (decode-json-from-string ,json-string-or-alist)
                           ,json-string-or-alist)))
         (let ,(loop for v in vars collect `(,v (assoc-lookup ,@(lookup-deep v)
                                                 ,a-list)))
