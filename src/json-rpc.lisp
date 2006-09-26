@@ -31,7 +31,7 @@ It has three properties:
       (:id . ,id))))
 
 
-(defun invoke-rpc (json-string) ;;TODO :error handling?
+(defun invoke-rpc (json-string)
   "A remote method is invoked by sending a request to a remote service. The request is a single object serialized using JSON.
 
 It has three properties:
@@ -40,9 +40,16 @@ It has three properties:
     * params - An Array of objects to pass as arguments to the method.
     * id - The request id. This can be of any type. It is used to match the response with the request that it is replying to. "
   (json-bind (method params id) json-string
-    (let ((func (gethash method *json-rpc-functions*)))
-      (if func
-          (make-rpc-response :id id :result (apply func params))
-          (make-rpc-response :id id :error "Function not found.")))))
-
-
+    (restart-case
+        (let ((func (gethash method *json-rpc-functions*)))
+          (if func
+              (make-rpc-response :id id :result (restart-case (apply func params)
+                                                  (use-value (value)
+                                                    value)))
+              (make-rpc-response :id id :error "Function not found.")))
+      (send-error (error-message)
+        (make-rpc-response :id id :error error-message))
+      (send-nothing ()
+        nil)
+      (send-internal-error ()
+        (make-rpc-response :id id :error "An internal error occurred on the server.")))))
