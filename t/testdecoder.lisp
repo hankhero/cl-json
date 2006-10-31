@@ -149,3 +149,12 @@ returned!"
 ;;            (funcall #'identity discard-soon))))
 ;;      (sb-sprof:report)
 ;;      nil)))
+
+(test non-strict-json
+   (let ((not-strictly-valid "\"right\\'s of man\""))
+     (5am:signals json:json-parse-error
+       (json:decode-json-from-string not-strictly-valid))
+     (let ((*use-strict-json-rules* nil))
+       (declare (special *use-strict-json-rules*))
+       (is (string= (json:decode-json-from-string not-strictly-valid)
+                    "right's of man")))))

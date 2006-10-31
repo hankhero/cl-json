@@ -9,6 +9,9 @@
     #:decode-json-strict
     #:decode-json-from-string
 
+    #:*use-strict-json-rules*
+    #:json-parse-error
+
     #:encode-json
     #:encode-json-to-string
     #:encode-json-alist

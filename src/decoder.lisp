@@ -13,6 +13,8 @@
 (defparameter *json-object-factory-return* #'(lambda (obj) (nreverse obj)))
 (defparameter *json-make-big-number* #'(lambda (number-string) (format nil "BIGNUMBER:~a" number-string)))
 
+(define-condition json-parse-error (error) ())
+
 (defun decode-json-from-string (json-string)
   (with-input-from-string (stream json-string)
     (decode-json stream)))
