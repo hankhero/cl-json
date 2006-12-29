@@ -101,15 +101,15 @@
                 t))
     (handler-case 
         (read-from-string number-string)
-      (reader-error (e)
+      (serious-condition (e)
         (let ((e-pos (or (position #\e number-string)
                          (position #\E number-string))))
           (if e-pos
               (handler-case
                   (read-from-string (substitute #\l (aref number-string e-pos) number-string))
-                (reader-error ()
+                (serious-condition ()
                   (funcall *json-make-big-number* number-string)))
-              (error e)))))))
+              (error "Unexpected error ~S" e)))))))
     
 (defun read-chars-until(stream &key terminator-fn (char-converter #'(lambda (ch stream)
                                                                        (declare (ignore stream))
