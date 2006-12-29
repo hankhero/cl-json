@@ -49,8 +49,8 @@
              (encoded (encode-json-to-string decoded)))
 ;;        (format t "Json:~a~&" json)
 ;;        (format t "Encoded:~a" encoded)    
-        (is-true (string= (normalize json)
-                          (normalize encoded)))))))
+        (is (string= (normalize json)
+                     (normalize encoded)))))))
 
 
 (test test-encode-json-alist
