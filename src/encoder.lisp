@@ -11,8 +11,12 @@
 (defmethod encode-json((nr number) stream)
   (write-json-number nr stream))
 
-(defmethod encode-json((s string ) stream) 
+(defmethod encode-json((s string) stream) 
   (write-json-string s stream))
+
+(defmethod encode-json ((c character) stream)
+  "JSON does not define a character type, we encode characters as strings."
+  (encode-json (string c) stream))
 
 (defmethod encode-json((s symbol) stream)
   (cond

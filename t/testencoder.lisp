@@ -143,6 +143,11 @@
   (is (string= (encode-json-to-string (vector 1 2))
                "[1,2]")))
 
+(test character
+  ;;Characters are encoded to strings, but when decoded back to string
+  (is (string= (encode-json-to-string #\a) "\"a\"")))
+
+
 (test hash-table-symbol
   (let ((ht (make-hash-table)))
     (setf (gethash 'symbols-are-now-converted-to-camel-case ht) 5)
