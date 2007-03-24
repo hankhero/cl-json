@@ -158,3 +158,20 @@ returned!"
        (declare (special *use-strict-json-rules*))
        (is (string= (json:decode-json-from-string not-strictly-valid)
                     "right's of man")))))
+
+(test test*json-symbols-package*
+  (let ((*json-symbols-package* nil)
+        x)
+    (setf x (decode-json-from-string "{\"x\":1}"))
+    (is (equal (symbol-package (caar x))
+               (find-package :json-test))))
+  (let ((*json-symbols-package* (find-package :cl-user))
+        x)
+    (setf x (decode-json-from-string "{\"x\":1}"))
+    (is (equal (symbol-package (caar x))
+               (find-package :cl-user))))
+  (let (x)
+    (setf x (decode-json-from-string "{\"x\":1}"))
+    (is (equal (symbol-package (caar x))
+               (find-package :keyword)))))
+

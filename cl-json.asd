@@ -10,7 +10,7 @@
 (defsystem :cl-json
   :name "cl-json"
   :description "JSON in Lisp. JSON (JavaScript Object Notation) is a lightweight data-interchange format."
-  :version "0.2.2"
+  :version "0.3.0"
   :author "Henrik Hjelte <henrik@evahjelte.com>"
   :licence "MIT"
   :components ((:static-file "cl-json.asd")
