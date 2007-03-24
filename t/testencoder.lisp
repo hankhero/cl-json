@@ -52,12 +52,10 @@
         (is (string= (normalize json)
                      (normalize encoded)))))))
 
-
 (test test-encode-json-nathan-hawkins
   (let ((foo '((a . 1) (b . 2) (c . 3))))
     (is (string= (encode-json-to-string foo)
                  "{\"a\":1,\"b\":2,\"c\":3}"))))
-
 
 (test test-encode-json-alist
       (let ((alist `((:HELLO . 100)(:hi . 5)))

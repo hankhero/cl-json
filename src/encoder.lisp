@@ -24,10 +24,19 @@
     ((eq 't s) (write-json-chars "true" stream))
     (t (write-json-string (funcall *symbol-to-string-fn* s) stream))))
 
-(defmethod encode-json((s sequence ) stream)
-  (let ((first-element t))
-    (write-char #\[ stream)    
-    (map nil #'(lambda (element)
+(defmethod encode-json((s list) stream)
+  (handler-case 
+      (write-string (with-output-to-string (temp)
+                      (call-next-method s temp))
+                    stream)
+    (type-error (e)
+      (declare (ignore e))
+      (encode-json-alist s stream))))
+
+(defmethod encode-json((s sequence) stream)
+   (let ((first-element t))
+     (write-char #\[ stream)    
+     (map nil #'(lambda (element) 
                  (if first-element
                      (setf first-element nil)
                      (write-char #\, stream))
