@@ -13,7 +13,7 @@
   :version "0.2.2"
   :author "Henrik Hjelte <henrik@evahjelte.com>"
   :licence "MIT"
-  :components ((:static-file "json.asd")
+  :components ((:static-file "cl-json.asd")
                (:module :src
                 :components ((:file "package")
                              (:file "common" :depends-on ("package"))
@@ -23,8 +23,8 @@
                              (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder")))))
   :depends-on (:parenscript))
 
-(defsystem :json.test
-  :depends-on (:json :fiveam )
+(defsystem :cl-json.test
+  :depends-on (:cl-json :fiveam )
   :components ((:module :t
                :components ((:file "package")
                             (:file "testjson" :depends-on ("package" "testdecoder" "testencoder" "testmisc"))
