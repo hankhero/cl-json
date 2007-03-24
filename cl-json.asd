@@ -1,3 +1,5 @@
+;;; -*- lisp -*-
+
 (in-package #:cl-user)
 
 (defpackage #:json-system
@@ -5,7 +7,7 @@
 
 (in-package #:json-system)
 
-(defsystem :json
+(defsystem :cl-json
   :name "cl-json"
   :description "JSON in Lisp. JSON (JavaScript Object Notation) is a lightweight data-interchange format."
   :version "0.2.2"
