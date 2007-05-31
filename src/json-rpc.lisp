@@ -53,3 +53,12 @@ It has three properties:
         nil)
       (send-internal-error ()
         (make-rpc-response :id id :error "An internal error occurred on the server.")))))
+
+(defmacro def-restart (restart-name &rest (params))
+  `(defun ,restart-name (,@params &optional condition)
+     (let ((restart (find-restart ',restart-name condition)))
+       (invoke-restart restart ,@params))))
+
+(def-restart send-error (errmsg))
+(def-restart send-nothing ())
+(def-restart send-internal-error ())
