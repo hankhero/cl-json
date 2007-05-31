@@ -23,13 +23,23 @@
 It has three properties:
 
     * result - The Object that was returned by the invoked method. This must be null in case there was an error invoking the method.
-    * error - An Error object if there was an error invoking the method. It must be null if there was no error.
+    * error - An Error object(unspecified in json-rpc 1.0) if there was an error invoking the method. Null if there was no error.
     * id - This must be the same id as the request it is responding to. "
   (json:encode-json-alist-to-string
     `((:result . ,result)
       (:error . ,error)
       (:id . ,id))))
 
+(defun make-json-rpc-error-object-1.1 (message &key code error-object)
+  "This code is based on the Working Draft 7 August 2006 of Json-rpc 1.1 specification. 
+  http://json-rpc.org/wd/JSON-RPC-1-1-WD-20060807.html
+"
+  (let ((eo `((:name . "JSONRPCError")
+              (:code . ,(or code 999))
+              (:message . ,message))))
+    (if error-object
+        (append eo `((:error . ,error-object)))
+        eo)))
 
 (defun invoke-rpc (json-string)
   "A remote method is invoked by sending a request to a remote service. The request is a single object serialized using JSON.
@@ -46,19 +56,24 @@ It has three properties:
               (make-rpc-response :id id :result (restart-case (apply func params)
                                                   (use-value (value)
                                                     value)))
-              (make-rpc-response :id id :error "Function not found.")))
-      (send-error (error-message)
-        (make-rpc-response :id id :error error-message))
+              (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 "Procedure not found"))))
+      (send-error (message &optional code error-object)
+        (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 message
+                                                                         :code code
+                                                                         :error-object error-object)))
+      (send-error-object (error-object)
+        (make-rpc-response :id id :error error-object))
       (send-nothing ()
         nil)
       (send-internal-error ()
-        (make-rpc-response :id id :error "An internal error occurred on the server.")))))
+        (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 "Service error"))))))
 
 (defmacro def-restart (restart-name &rest (params))
   `(defun ,restart-name (,@params &optional condition)
      (let ((restart (find-restart ',restart-name condition)))
        (invoke-restart restart ,@params))))
 
-(def-restart send-error (errmsg))
+(def-restart send-error (errmsg code))
+(def-restart send-error-object (errobject))
 (def-restart send-nothing ())
 (def-restart send-internal-error ())

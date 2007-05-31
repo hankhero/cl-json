@@ -29,4 +29,10 @@
     #:defun-json-rpc
     #:export-as-json-rpc
     #:invoke-rpc
+
+    ;; restarts
+    #:send-error
+    #:send-error-object
+    #:send-nothing
+    #:send-internal-error
     ))
