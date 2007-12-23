@@ -213,3 +213,10 @@
                 (write-char ch out))
               (write-char (char-upcase ch) out))
           (setf last-char ch))))
+
+(defmacro with-old-decoder-semantics (&body body)
+  `(let ((*json-object-prototype*
+          (make-instance 'prototype
+            :lisp-class 'cons :lisp-package "keyword"))
+         (*json-array-type* 'list))
+     ,@body))
