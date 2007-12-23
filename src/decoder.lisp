@@ -93,6 +93,8 @@
 
 (add-json-dispatch-rule #\" #'read-json-string)
 
+(defparameter *json-array-type* 'vector)
+
 (defun read-json-object (stream)
   (read-char stream)
   (let ((obj (funcall *json-object-factory*))
@@ -129,14 +131,16 @@
 
 (defun read-json-array (stream)
   (read-char stream)
-  (if (char= #\] (peek-char t stream))
-      (progn (read-char stream) nil)
-      (loop for first-in-element = (assert (not (member (peek-char t stream) '(#\, #\]))))
-            for element = (decode-json stream)
-            for terminator = (peek-char t stream)
-            for skip-terminator = (assert (member (read-char stream) '(#\, #\])))
-            collect element        
-            until (char= #\] terminator))))
+  (coerce
+   (if (char= #\] (peek-char t stream))
+       (progn (read-char stream) nil)
+       (loop for first-in-element = (assert (not (member (peek-char t stream) '(#\, #\]))))
+             for element = (decode-json stream)
+             for terminator = (peek-char t stream)
+             for skip-terminator = (assert (member (read-char stream) '(#\, #\])))
+             collect element
+             until (char= #\] terminator)))
+   *json-array-type*))
 
 (add-json-dispatch-rule #\[ #'read-json-array)
 

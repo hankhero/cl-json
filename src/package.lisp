@@ -6,6 +6,7 @@
     #:*json-object-factory*
     #:*json-object-factory-add-key-value*
     #:*json-object-factory-return*
+    #:*json-array-type*
     #:*json-make-big-number*
     
     #:decode-json
