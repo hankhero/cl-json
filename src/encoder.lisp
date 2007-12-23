@@ -62,9 +62,22 @@
          (encode-json value ,strm)))
       (write-char #\} ,strm))))
 
-(defmethod encode-json((h hash-table) stream)
+(defmethod encode-json ((h hash-table) stream)
   (with-hash-table-iterator (generator h)
-      (write-json-object generator stream)))
+    (with-iterator-and-prototype generator h
+      (write-json-object generator stream))))
+
+(defmethod encode-json ((o standard-object) stream)
+  (let ((gen-func (make-object-slot-iterator o)))
+    (macrolet ((generator () '(funcall gen-func)))
+      (with-iterator-and-prototype generator o
+        (write-json-object generator stream)))))
+
+(defmethod encode-json ((o structure-object) stream)
+  (let ((gen-func (make-object-slot-iterator o)))
+    (macrolet ((generator () '(funcall gen-func)))
+      (with-iterator-and-prototype generator o
+        (write-json-object generator stream)))))
 
 (defmacro with-alist-iterator ((generator-fn alist) &body body)
   (let ((stack (gensym)))
@@ -78,7 +91,8 @@
         
 (defun encode-json-alist (alist stream)
   (with-alist-iterator (gen-fn alist)
-    (write-json-object gen-fn stream)))
+    (with-iterator-and-prototype gen-fn alist
+      (write-json-object gen-fn stream))))
 
 (defun encode-json-alist-to-string(alist)
   (with-output-to-string (stream)
