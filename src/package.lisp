@@ -20,7 +20,18 @@
     #:encode-json-alist-to-string
 
     #:json-bind
-    ))
+    )
+  (:import-from #+(or mcl openmcl) #:ccl
+                #+cmu #:clos-mop
+                #+sbcl #:sb-mop
+                #+(or clisp ecl lispworks) #:clos
+                #+allegro #:mop
+    #:slot-definition-name
+    #:class-slots
+    #:class-direct-superclasses
+    #:remove-direct-subclass
+    )
+   )
 
 (defpackage :json-rpc
   (:use :common-lisp :json)

@@ -17,8 +17,9 @@
                (:module :src
                 :components ((:file "package")
                              (:file "common" :depends-on ("package"))
-                             (:file "decoder" :depends-on ("common"))
-                             (:file "encoder" :depends-on ("common"))
+                             (:file "objects" :depends-on ("package"))
+                             (:file "decoder" :depends-on ("common" "objects"))
+                             (:file "encoder" :depends-on ("common" "objects"))
                              (:file "utils" :depends-on ("decoder" "encoder"))
                              (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder")))))
   :depends-on (:parenscript))
