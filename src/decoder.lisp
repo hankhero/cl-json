@@ -9,11 +9,43 @@
 
 (defparameter *json-rules* nil)
 
+(defparameter *json-object-prototype* nil)
 (defparameter *json-object-factory* #'(lambda () nil))
 (defparameter *json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                      (push (cons (json-intern key) value)
+                                                      (push (cons key value)
                                                             obj)))
-(defparameter *json-object-factory-return* #'(lambda (obj) (nreverse obj)))
+
+(defun json-factory-make-object (factory)
+  (flet ((intern-keys (alist package)
+           (let ((*json-symbols-package* package))
+             (loop for (key . value) in alist with ret
+               do (push (cons (json-intern key) value) ret)
+               finally (return ret)))))
+    (if (eq *json-object-prototype* t)
+        (make-object (intern-keys factory '#:json) (find-class 'prototype))
+        (multiple-value-bind (package class superclasses)
+            (if *json-object-prototype*
+                (values (lisp-package *json-object-prototype*)
+                        (lisp-class *json-object-prototype*)
+                        (lisp-superclasses *json-object-prototype*)))
+          (let* ((*json-symbols-package*
+                  (find-package
+                   (camel-case-to-lisp (string (or package '#:keyword)))))
+                 (bindings
+                  (intern-keys factory *json-symbols-package*)))
+            (maybe-add-prototype
+             (if class
+                 (make-object bindings
+                              (if (symbolp class)
+                                  class
+                                  (json-intern (string class))))
+                 (make-object bindings nil
+                   :superclasses (loop for super in superclasses
+                                   collect (json-intern (string super)))))
+             *json-object-prototype*))))))
+
+(defparameter *json-object-factory-return* #'json-factory-make-object)
+
 (defparameter *json-make-big-number* #'(lambda (number-string) (format nil "BIGNUMBER:~a" number-string)))
 
 (define-condition json-parse-error (error) ())
@@ -63,19 +95,35 @@
 
 (defun read-json-object (stream)
   (read-char stream)
-  (let ((obj (funcall *json-object-factory*)))
+  (let ((obj (funcall *json-object-factory*))
+        (prototype *json-object-prototype*))
     (if (char= #\} (peek-char t stream))
         (read-char stream)
-        (loop for skip-whitepace = (peek-char t stream)
-              for key = (read-json-string stream)
-              for separator = (peek-char t stream)
-              for skip-separator = (assert (char= #\: (read-char stream)))
-              for value = (decode-json stream)
+        (loop for key = (progn (peek-char t stream) (read-json-string stream))
+              with prototype-name =
+                (if *prototype-name*
+                    (funcall *symbol-to-string-fn* *prototype-name*)
+                    "")
+              for value =
+                (progn
+                  (if (and (not prototype) (string= key prototype-name))
+                      (setq prototype t))
+                  (peek-char t stream)
+                  (assert (char= #\: (read-char stream)))
+                  (let ((*json-object-prototype* prototype)
+                        (*json-array-type*
+                         ;; The list of superclasses should be read as list
+                         (if (eq prototype t) 'list *json-array-type*)))
+                    (decode-json stream)))
               for terminator = (peek-char t stream)
-              for skip-terminator = (assert (member (read-char stream) '(#\, #\})))
-              do (setf obj (funcall *json-object-factory-add-key-value* obj key value))
+              do (assert (member (read-char stream) '(#\, #\})))
+              if (typep value 'prototype)
+                do (setf prototype value)
+              else
+                do (setf obj (funcall *json-object-factory-add-key-value* obj key value))
               until (char= #\} terminator)))
-    (funcall *json-object-factory-return* obj)))
+    (let ((*json-object-prototype* prototype))
+      (funcall *json-object-factory-return* obj))))
 
 (add-json-dispatch-rule #\{ #'read-json-object)
 

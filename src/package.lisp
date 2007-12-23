@@ -1,6 +1,7 @@
 (defpackage :json
   (:use :common-lisp)
   (:export
+    #:*prototype-name*
     #:*json-symbols-package*
     #:*json-object-factory*
     #:*json-object-factory-add-key-value*
