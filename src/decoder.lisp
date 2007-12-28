@@ -59,6 +59,10 @@
         *json-array-type* 'vector
         *prototype-name* 'prototype))
 
+(set-list-decoder-semantics)
+;; yes, put the old style as the default
+;; until the clos-decoder is tested and integrated.
+
 
 (defmacro with-old-decoder-semantics (&body body)
   `(let (*json-object-prototype*
