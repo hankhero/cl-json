@@ -170,8 +170,9 @@ returned!"
     (setf x (decode-json-from-string "{\"x\":1}"))
     (is (equal (symbol-package (caar x))
                (find-package :cl-user))))
-  (let (x)
-    (setf x (decode-json-from-string "{\"x\":1}"))
-    (is (equal (symbol-package (caar x))
-               (find-package :keyword)))))
+  (when (eq *json-symbols-package* (find-package :keyword))
+    (let (x)
+      (setf x (decode-json-from-string "{\"x\":1}"))
+      (is (equal (symbol-package (caar x))
+                 (find-package :keyword))))))
 

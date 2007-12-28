@@ -1,38 +1,23 @@
 (in-package :json)
 
-(defvar *json-symbols-package* (find-package 'keyword) "The package where json-symbols are interned. Default keyword, nil = current package")
-
-(defun json-intern (string)
-  (if *json-symbols-package*
-      (intern (camel-case-to-lisp string) *json-symbols-package*)
-      (intern (camel-case-to-lisp string))))
-
-(defparameter *json-rules* nil)
-
-(defparameter *json-object-prototype* nil)
-(defparameter *json-object-factory* #'(lambda () nil))
-(defparameter *json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                      (push (cons key value)
-                                                            obj)))
-
 (defun json-factory-make-object (factory)
-  (flet ((intern-keys (alist package)
-           (let ((*json-symbols-package* package))
-             (loop for (key . value) in alist with ret
-               do (push (cons (json-intern key) value) ret)
-               finally (return ret)))))
+  (flet ((intern-keys (alist)
+           (loop for (key . value) in alist with ret
+              do (push (cons (json-intern key) value) ret)
+              finally (return ret))))
     (if (eq *json-object-prototype* t)
-        (make-object (intern-keys factory '#:json) (find-class 'prototype))
+        (make-object (intern-keys factory) (find-class 'prototype))
         (multiple-value-bind (package class superclasses)
             (if *json-object-prototype*
                 (values (lisp-package *json-object-prototype*)
                         (lisp-class *json-object-prototype*)
                         (lisp-superclasses *json-object-prototype*)))
-          (let* ((*json-symbols-package*
+          (let* (#+nil 
+                 (*json-symbols-package*
                   (find-package
                    (camel-case-to-lisp (string (or package '#:keyword)))))
                  (bindings
-                  (intern-keys factory *json-symbols-package*)))
+                  (intern-keys factory)))
             (maybe-add-prototype
              (if class
                  (make-object bindings
@@ -40,13 +25,53 @@
                                   class
                                   (json-intern (string class))))
                  (make-object bindings nil
-                   :superclasses (loop for super in superclasses
-                                   collect (json-intern (string super)))))
+                              :superclasses (loop for super in superclasses
+                                               collect (json-intern (string super)))))
              *json-object-prototype*))))))
 
+(defvar *json-symbols-package* (find-package 'keyword)
+  "The package where json-symbols are interned. Default keyword, nil = current package")
+
+(defparameter *json-rules* nil)
+
+(defparameter *json-object-prototype* nil)
+
+(defparameter *json-object-factory* #'(lambda () nil))
+(defparameter *json-object-factory-add-key-value* #'(lambda (obj key value)
+                                                      (push (cons key value)
+                                                            obj)))
 (defparameter *json-object-factory-return* #'json-factory-make-object)
 
-(defparameter *json-make-big-number* #'(lambda (number-string) (format nil "BIGNUMBER:~a" number-string)))
+(defparameter *json-array-type* 'vector)
+(defparameter *json-make-big-number* #'(lambda (number-string)
+                                         (format nil "BIGNUMBER:~a" number-string)))
+
+(defun set-list-decoder-semantics ()
+  (setf *json-object-prototype*
+        (make-instance 'prototype
+                       :lisp-class 'cons
+                       :lisp-package "keyword")
+        *json-array-type* 'list
+        *prototype-name* nil))
+
+(defun set-clos-decoder-semantics ()
+  (setf *json-object-prototype* nil
+        *json-array-type* 'vector
+        *prototype-name* 'prototype))
+
+
+(defmacro with-old-decoder-semantics (&body body)
+  `(let (*json-object-prototype*
+         *json-array-type*
+         *prototype-name*)
+     (set-list-decoder-semantics)
+     ,@body))
+
+(defun json-intern (string)
+  (if *json-symbols-package*
+      (intern (camel-case-to-lisp string) *json-symbols-package*)
+      (intern (camel-case-to-lisp string))))
+
 
 (define-condition json-parse-error (error) ())
 
@@ -93,7 +118,6 @@
 
 (add-json-dispatch-rule #\" #'read-json-string)
 
-(defparameter *json-array-type* 'vector)
 
 (defun read-json-object (stream)
   (read-char stream)
@@ -126,6 +150,24 @@
               until (char= #\} terminator)))
     (let ((*json-object-prototype* prototype))
       (funcall *json-object-factory-return* obj))))
+
+;; Before decoding to CLOS this used to be like this:
+;;   (defun read-json-object (stream)
+;;     (read-char stream)
+;;     (let ((obj (funcall *json-object-factory*)))
+;;       (if (char= #\} (peek-char t stream))
+;;           (read-char stream)
+;;           (loop for skip-whitepace = (peek-char t stream)
+;;                 for key = (read-json-string stream)
+;;                 for separator = (peek-char t stream)
+;;                 for skip-separator = (assert (char= #\: (read-char stream)))
+;;                 for value = (decode-json stream)
+;;                 for terminator = (peek-char t stream)
+;;                 for skip-terminator = (assert (member (read-char stream) '(#\, #\})))
+;;                 do (setf obj (funcall *json-object-factory-add-key-value* obj key value))
+;;                 until (char= #\} terminator)))
+;;       (funcall *json-object-factory-return* obj)))
+
 
 (add-json-dispatch-rule #\{ #'read-json-object)
 
@@ -202,6 +244,7 @@
 (camel-case-to-string \"CamelCase\") -> \"*CAMEL-CASE\"
 (camel-case-to-string \"dojo.widget.TreeNode\") -> \"DOJO.WIDGET.*TREE-NODE\"
 "
+;;;; double-quote to help emacs " 
   (with-output-to-string (out)
     (loop for ch across string
           with last-char do
@@ -214,9 +257,3 @@
               (write-char (char-upcase ch) out))
           (setf last-char ch))))
 
-(defmacro with-old-decoder-semantics (&body body)
-  `(let ((*json-object-prototype*
-          (make-instance 'prototype
-            :lisp-class 'cons :lisp-package "keyword"))
-         (*json-array-type* 'list))
-     ,@body))
