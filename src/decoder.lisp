@@ -144,13 +144,13 @@
 
 (add-json-dispatch-rule #\[ #'read-json-array)
 
-(defparameter *digits* '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
-(defparameter *json-number-valid-chars* (concatenate 'list *digits* '(#\e #\E #\. #\+ #\-)))
+(defparameter +digits+ '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
+(defparameter +json-number-valid-chars+ (concatenate 'list +digits+ '(#\e #\E #\. #\+ #\-)))
 
 (defun read-json-number (stream)
   (let ((number-string (read-chars-until stream
                                          :terminator-fn #'(lambda (ch)
-                                                            (not (member ch *json-number-valid-chars*))))))
+                                                            (not (member ch +json-number-valid-chars+))))))
     (assert (if (char= (char number-string 0) #\0)
                 (or (= 1 (length number-string)) (char= #\. (char number-string 1)))
                 t))
