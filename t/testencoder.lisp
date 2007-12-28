@@ -139,9 +139,16 @@
   (decode-then-encode "[null]"))
 
 (test array
-  ;;Since empty lists becomes nil in lisp, they are converted back to null
-  (is (string= (encode-json-to-string (decode-json-from-string "[  ]"))
-               "null"))
+  (with-list-decoder-semantics
+      ;;Since empty lists becomes nil in lisp, they are converted back to null
+      (is (string= (encode-json-to-string (decode-json-from-string "[  ]"))
+                   "null")))
+;; TODO: something like this:
+;;   (with-clos-decoder-semantics
+;;       ;;Since empty lists becomes #() in lisp, they are converted back to empty list
+;;       (is (string= (encode-json-to-string (decode-json-from-string "[  ]"))
+;;                    "[ ]")))
+  
   ;;But you can use vectors
   (is (string= (encode-json-to-string (vector 1 2))
                "[1,2]")))

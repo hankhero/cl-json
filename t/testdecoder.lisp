@@ -4,6 +4,9 @@
 
 ;; Test decoder
 
+(defun make-json-array-type (&rest elements)
+  (map json::*json-array-type* #'identity elements))
+
 (test json-literal
   (is-true (decode-json-from-string "  true"))
   (is-true (decode-json-from-string "  true "))
@@ -25,14 +28,16 @@ returned!"
 
 (test json-array
   (is (equalp
-       '("hello" "hej" "ciao")
+       (make-json-array-type "hello" "hej" "ciao")
        (decode-json-from-string " [ \"hello\",  \"hej\",
                    \"ciao\" ]")))
-  (is (equalp '(1 2 3)
+  (is (equalp (make-json-array-type 1 2 3)
               (decode-json-from-string "[1,2,3]")))
-  (is (equalp '(t nil nil)
+  (is (equalp (make-json-array-type t nil nil)
               (decode-json-from-string "[true,null,false]")))
-  (is-false (decode-json-from-string "[]")))
+  (is (equalp (make-json-array-type)
+              (decode-json-from-string "[]"))))
+
 
 (test json-object
   (is (equalp '((:hello . "hej")
