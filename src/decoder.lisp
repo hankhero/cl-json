@@ -63,8 +63,7 @@
 ;; yes, put the old style as the default
 ;; until the clos-decoder is tested and integrated.
 
-
-(defmacro with-old-decoder-semantics (&body body)
+(defmacro with-list-decoder-semantics (&body body)
   `(let (*json-object-prototype*
          *json-array-type*
          *prototype-name*)
