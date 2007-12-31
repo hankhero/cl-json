@@ -29,8 +29,9 @@
                         (lisp-superclasses *json-object-prototype*)))
           (let* (#+nil 
                  (*json-symbols-package*
-                  (find-package
-                   (camel-case-to-lisp (string (or package '#:keyword)))))
+                  (if package
+                      (find-package (camel-case-to-lisp (string package)))
+                      *json-symbols-package*))
                  (bindings
                   (intern-keys factory)))
             (maybe-add-prototype

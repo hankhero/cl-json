@@ -70,7 +70,7 @@
    (lisp-superclasses :initarg :lisp-superclasses :reader lisp-superclasses)
    (lisp-package :initarg :lisp-package :reader lisp-package))
   (:default-initargs :lisp-class nil :lisp-superclasses nil
-                     :lisp-package '#:keyword))
+                     :lisp-package nil))
 
 (defun max-package (symbols &key ((:initial-value package)
                                   (find-package '#:common-lisp)))
