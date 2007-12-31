@@ -96,14 +96,14 @@
          (class-name (if class (class-name class)))
          (superclass-names
           (if (not class-name)
-              (mapcar #'class-name (class-direct-superclasses class))))
+              (remove 'standard-object
+                      (mapcar #'class-name
+                              (class-direct-superclasses class)))))
          (package
-          (max-package superclass-names
-            :initial-value
-              (max-package slot-names
-                :initial-value (if class-name
-                                   (symbol-package class-name)
-                                   (find-package '#:common-lisp))))))
+          (max-package (append superclass-names slot-names)
+            :initial-value (if class-name
+                               (symbol-package class-name)
+                               (find-package '#:common-lisp)))))
       (make-instance 'prototype
         :lisp-class class-name
         :lisp-superclasses superclass-names
