@@ -37,38 +37,48 @@
 (defparameter *json-object-prototype* nil)
 
 (defparameter *json-object-factory* #'(lambda () nil))
-(defparameter *json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                      (push (cons key value)
-                                                            obj)))
-(defparameter *json-object-factory-return* #'json-factory-make-object)
+(defvar  *json-object-factory-add-key-value*)
+(defvar *json-object-factory-return*)
 
-(defparameter *json-array-type* 'vector)
+(defvar *json-array-type*)
 (defparameter *json-make-big-number* #'(lambda (number-string)
                                          (format nil "BIGNUMBER:~a" number-string)))
 
 (defun set-list-decoder-semantics ()
-  (setf *json-object-prototype*
-        (make-instance 'prototype
-                       :lisp-class 'cons
-                       :lisp-package "keyword")
+  (setf *json-object-prototype* nil
+        *json-object-factory-add-key-value* #'(lambda (obj key value)
+                                                (push (cons (json-intern key) value)
+                                                      obj))
+        *json-object-factory-return* #'(lambda (obj) (nreverse obj))
         *json-array-type* 'list
         *prototype-name* nil))
 
 (defun set-clos-decoder-semantics ()
   (setf *json-object-prototype* nil
         *json-array-type* 'vector
+        *json-object-factory-return* #'json-factory-make-object
+        *json-object-factory-add-key-value* #'(lambda (obj key value)
+                                                (push (cons key value)
+                                                      obj))
         *prototype-name* 'prototype))
 
 (set-list-decoder-semantics)
 ;; yes, put the old style as the default
 ;; until the clos-decoder is tested and integrated.
 
-(defmacro with-list-decoder-semantics (&body body)
+(defmacro with-shadowed-json-variables (&body body)
   `(let (*json-object-prototype*
          *json-array-type*
+         *json-object-factory-add-key-value*
+         *json-object-factory-return*
          *prototype-name*)
+     ,@body))
+
+(defmacro with-list-decoder-semantics (&body body)
+  `(with-shadowed-json-variables
      (set-list-decoder-semantics)
      ,@body))
+
 
 (defun json-intern (string)
   (if *json-symbols-package*
