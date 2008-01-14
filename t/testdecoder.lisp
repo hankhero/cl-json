@@ -63,6 +63,16 @@ returned!"
     (is (string= "hej" (gethash 'hello obj)))
     (is (string= "tjena" (gethash 'hi obj)))))
 
+(test set-list-decoder-semantics
+  (json::with-shadowed-json-variables
+    (let ((tricky-json "{\"startXPos\":98,\"startYPos\":4}"))
+      (json::set-list-decoder-semantics)
+      (is (equal '((:START-X*POS . 98) (:START-Y*POS . 4))
+                 (decode-json-from-string tricky-json))))))
+
+
+
+
 (test json-object-camel-case
   (is (equalp '((:hello-key . "hej")
                 (:*hi-starts-with-upper-case . "tjena"))
