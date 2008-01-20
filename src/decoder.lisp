@@ -1,5 +1,20 @@
 (in-package :json)
 
+(defvar *json-symbols-package* (find-package 'keyword)
+  "The package where json-symbols are interned. Default keyword, nil = current package")
+
+(defparameter *json-rules* nil)
+
+(defparameter *json-object-prototype* nil)
+
+(defparameter *json-object-factory* #'(lambda () nil))
+(defvar  *json-object-factory-add-key-value*)
+(defvar *json-object-factory-return*)
+
+(defvar *json-array-type*)
+(defparameter *json-make-big-number* #'(lambda (number-string)
+                                         (format nil "BIGNUMBER:~a" number-string)))
+
 (defun json-factory-make-object (factory)
   (flet ((intern-keys (alist)
            (loop for (key . value) in alist with ret
@@ -28,21 +43,6 @@
                               :superclasses (loop for super in superclasses
                                                collect (json-intern (string super)))))
              *json-object-prototype*))))))
-
-(defvar *json-symbols-package* (find-package 'keyword)
-  "The package where json-symbols are interned. Default keyword, nil = current package")
-
-(defparameter *json-rules* nil)
-
-(defparameter *json-object-prototype* nil)
-
-(defparameter *json-object-factory* #'(lambda () nil))
-(defvar  *json-object-factory-add-key-value*)
-(defvar *json-object-factory-return*)
-
-(defvar *json-array-type*)
-(defparameter *json-make-big-number* #'(lambda (number-string)
-                                         (format nil "BIGNUMBER:~a" number-string)))
 
 (defun set-list-decoder-semantics ()
   (setf *json-object-prototype* nil
@@ -268,5 +268,5 @@
                     (write-char #\* out))
                 (write-char ch out))
               (write-char (char-upcase ch) out))
-          (setf last-char ch))))
+          (setf last-char ch)))) 
 

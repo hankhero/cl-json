@@ -12,6 +12,8 @@
 
 (defparameter *use-strict-json-rules* t)
 
+(defparameter *symbol-to-string-fn* #'js::symbol-to-js)
+
 (defun json-escaped-char-to-lisp(json-escaped-char)
   (let ((ch (cdr (assoc json-escaped-char +json-lisp-escaped-chars+))))
     (if *use-strict-json-rules*

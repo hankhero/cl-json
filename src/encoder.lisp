@@ -1,7 +1,5 @@
 (in-package :json)
 
-(defparameter *symbol-to-string-fn* #'js::symbol-to-js)
-
 (defgeneric encode-json (object stream))
 
 (defun encode-json-to-string(object)
