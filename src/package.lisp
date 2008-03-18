@@ -21,6 +21,8 @@
     #:encode-json-to-string
     #:encode-json-alist
     #:encode-json-alist-to-string
+    #:encode-json-plist
+    #:encode-json-plist-to-string    
 
     #:json-bind
     )

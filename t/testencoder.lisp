@@ -80,6 +80,14 @@
             (expected "{\"helloMessage\":\"hej\",\"AlsoStartingWithUpper\":\"hej\"}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
+ 
+(test test-encode-json-plist
+      (let ((plist '(:foo 1 :bar "blub"))
+            (expected "{\"foo\":1,\"bar\":\"blub\"}"))
+        (is (string= (with-output-to-string (s) (encode-json-plist plist s))
+                     expected))
+        (is (string= (encode-json-plist-to-string plist)
+                     expected))))
 
 (test encode-pass-2
   (decode-then-encode "[[[[[[[[[[[[[[[[[[[\"Not too deep\"]]]]]]]]]]]]]]]]]]]"))

@@ -96,6 +96,17 @@
   (with-output-to-string (stream)
     (encode-json-alist alist stream)))
 
+(defun encode-json-plist (plist stream)
+  (write-json-object
+   (lambda ()
+     (multiple-value-prog1
+         (values plist (car plist) (cadr plist))
+       (setf plist (cddr plist))))
+   stream))
+
+(defun encode-json-plist-to-string (plist)
+  (with-output-to-string (stream)
+    (encode-json-plist plist stream)))
 
 (defun write-json-string (s stream)
   (write-char #\" stream)
