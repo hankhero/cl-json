@@ -80,6 +80,11 @@
      (set-list-decoder-semantics)
      ,@body))
 
+(defmacro with-clos-decoder-semantics (&body body)
+  `(with-shadowed-json-variables
+     (set-clos-decoder-semantics)
+     ,@body))
+
 
 (defun json-intern (string)
   (if *json-symbols-package*

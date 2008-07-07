@@ -13,6 +13,7 @@
     #:decode-json-strict
     #:decode-json-from-string
     #:with-list-decoder-semantics
+    #:with-clos-decoder-semantics
 
     #:*use-strict-json-rules*
     #:json-parse-error
