@@ -40,11 +40,12 @@ returned!"
 
 
 (test json-object
-  (is (equalp '((:hello . "hej")
-                (:hi . "tjena"))
-       (decode-json-from-string " { \"hello\" : \"hej\" ,
+  (let ((*json-symbols-package* (find-package :keyword)))
+    (is (equalp '((:hello . "hej")
+                  (:hi . "tjena"))
+                (decode-json-from-string " { \"hello\" : \"hej\" ,
                        \"hi\" : \"tjena\"
-                     }")))
+                     }"))))
   (is-false (decode-json-from-string " {  } "))
   (is-false (decode-json-from-string "{}")))
 
@@ -65,7 +66,8 @@ returned!"
 
 (test set-list-decoder-semantics
   (json::with-shadowed-json-variables
-    (let ((tricky-json "{\"startXPos\":98,\"startYPos\":4}"))
+    (let ((tricky-json "{\"startXPos\":98,\"startYPos\":4}")
+          (*json-symbols-package* (find-package :keyword)))
       (json::set-list-decoder-semantics)
       (is (equal '((:START-X*POS . 98) (:START-Y*POS . 4))
                  (decode-json-from-string tricky-json))))))
@@ -74,11 +76,12 @@ returned!"
 
 
 (test json-object-camel-case
-  (is (equalp '((:hello-key . "hej")
-                (:*hi-starts-with-upper-case . "tjena"))
-       (decode-json-from-string " { \"helloKey\" : \"hej\" ,
+  (let ((*json-symbols-package* (find-package :keyword)))
+    (is (equalp '((:hello-key . "hej")
+                  (:*hi-starts-with-upper-case . "tjena"))
+                (decode-json-from-string " { \"helloKey\" : \"hej\" ,
                        \"HiStartsWithUpperCase\" : \"tjena\"
-                     }"))))
+                     }")))))
 
 
 

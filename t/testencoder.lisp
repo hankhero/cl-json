@@ -11,7 +11,7 @@
                                                  obj))
         (*json-object-factory-return* #'identity))
     ,@body))
-    
+
 (test json-string()
    (is (string= (encode-json-to-string (format nil "hello~&hello"))
                  "\"hello\\nhello\""))
