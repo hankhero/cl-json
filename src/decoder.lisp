@@ -16,24 +16,24 @@
                                          (format nil "BIGNUMBER:~a" number-string)))
 
 (defun json-factory-make-object (factory)
-  (flet ((intern-keys (alist)
-           (loop for (key . value) in alist with ret
-              do (push (cons (json-intern key) value) ret)
-              finally (return ret))))
+  (flet ((intern-keys (alist package)
+           (let ((*json-symbols-package* package))
+             (loop for (key . value) in alist with ret
+                do (push (cons (json-intern key) value) ret)
+                finally (return ret)))))
     (if (eq *json-object-prototype* t)
-        (make-object (intern-keys factory) (find-class 'prototype))
+        (make-object (intern-keys factory '#:json) (find-class 'prototype))
         (multiple-value-bind (package class superclasses)
             (if *json-object-prototype*
                 (values (lisp-package *json-object-prototype*)
                         (lisp-class *json-object-prototype*)
                         (lisp-superclasses *json-object-prototype*)))
-          (let* (#+nil 
-                 (*json-symbols-package*
+          (let* ((*json-symbols-package*
                   (if package
                       (find-package (camel-case-to-lisp (string package)))
                       *json-symbols-package*))
                  (bindings
-                  (intern-keys factory)))
+                  (intern-keys factory *json-symbols-package*)))
             (maybe-add-prototype
              (if class
                  (make-object bindings
