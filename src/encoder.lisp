@@ -6,6 +6,9 @@
   (with-output-to-string (stream)
     (encode-json object stream)))
 
+(defmethod encode-json (anything stream)
+  (write-json-string (format nil "~A" anything) stream))
+
 (defmethod encode-json((nr number) stream)
   (write-json-number nr stream))
 
