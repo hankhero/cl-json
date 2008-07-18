@@ -40,14 +40,15 @@ returned!"
 
 
 (test json-object
-  (let ((*json-symbols-package* (find-package :keyword)))
-    (is (equalp '((:hello . "hej")
-                  (:hi . "tjena"))
-                (decode-json-from-string " { \"hello\" : \"hej\" ,
+  (with-list-decoder-semantics
+    (let ((*json-symbols-package* (find-package :keyword)))
+      (is (equalp '((:hello . "hej")
+                    (:hi . "tjena"))
+                  (decode-json-from-string " { \"hello\" : \"hej\" ,
                        \"hi\" : \"tjena\"
                      }"))))
-  (is-false (decode-json-from-string " {  } "))
-  (is-false (decode-json-from-string "{}")))
+    (is-false (decode-json-from-string " {  } "))
+    (is-false (decode-json-from-string "{}"))))
 
 (test json-object-factory
   (let ((*json-object-factory* #'(lambda ()
@@ -76,12 +77,13 @@ returned!"
 
 
 (test json-object-camel-case
-  (let ((*json-symbols-package* (find-package :keyword)))
-    (is (equalp '((:hello-key . "hej")
-                  (:*hi-starts-with-upper-case . "tjena"))
-                (decode-json-from-string " { \"helloKey\" : \"hej\" ,
+  (with-list-decoder-semantics
+    (let ((*json-symbols-package* (find-package :keyword)))
+      (is (equalp '((:hello-key . "hej")
+                    (:*hi-starts-with-upper-case . "tjena"))
+                  (decode-json-from-string " { \"helloKey\" : \"hej\" ,
                        \"HiStartsWithUpperCase\" : \"tjena\"
-                     }")))))
+                     }"))))))
 
 
 
@@ -180,17 +182,38 @@ returned!"
 (test test*json-symbols-package*
   (let ((*json-symbols-package* nil)
         x)
-    (setf x (decode-json-from-string "{\"x\":1}"))
-    (is (equal (symbol-package (caar x))
-               (find-package :json-test))))
-  (let ((*json-symbols-package* (find-package :cl-user))
-        x)
-    (setf x (decode-json-from-string "{\"x\":1}"))
-    (is (equal (symbol-package (caar x))
-               (find-package :cl-user))))
-  (when (eq *json-symbols-package* (find-package :keyword))
-    (let (x)
+    (with-list-decoder-semantics
       (setf x (decode-json-from-string "{\"x\":1}"))
       (is (equal (symbol-package (caar x))
-                 (find-package :keyword))))))
+                 (find-package :json-test))))
+    (with-clos-decoder-semantics
+      (setf x (decode-json-from-string "{\"x\":1}"))
+      (is (equal (symbol-package
+                  (json::slot-definition-name
+                   (first (json::class-slots (class-of x)))))
+                 (find-package :json-test)))))
+  (let ((*json-symbols-package* (find-package :cl-user))
+        x)
+    (with-list-decoder-semantics
+      (setf x (decode-json-from-string "{\"x\":1}"))
+      (is (equal (symbol-package (caar x))
+                 (find-package :cl-user))))
+    (with-clos-decoder-semantics
+      (setf x (decode-json-from-string "{\"x\":1}"))
+      (is (equal (symbol-package
+                  (json::slot-definition-name
+                   (first (json::class-slots (class-of x)))))
+                 (find-package :cl-user)))))
+  (when (eq *json-symbols-package* (find-package :keyword))
+    (let (x)
+      (with-list-decoder-semantics
+        (setf x (decode-json-from-string "{\"x\":1}"))
+        (is (equal (symbol-package (caar x))
+                   (find-package :keyword))))
+      (with-clos-decoder-semantics
+        (setf x (decode-json-from-string "{\"x\":1}"))
+        (is (equal (symbol-package
+                    (json::slot-definition-name
+                     (first (json::class-slots (class-of x)))))
+                   (find-package :keyword)))))))
 

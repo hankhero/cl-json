@@ -53,31 +53,36 @@
                      (normalize encoded)))))))
 
 (test test-encode-json-nathan-hawkins
-  (let ((foo '((a . 1) (b . 2) (c . 3))))
+  (let ((foo '((a . 1) (b . 2) (c . 3)))
+        (*prototype-name* nil))
     (is (string= (encode-json-to-string foo)
                  "{\"a\":1,\"b\":2,\"c\":3}"))))
 
 (test test-encode-json-alist
       (let ((alist `((:HELLO . 100)(:hi . 5)))
-            (expected "{\"hello\":100,\"hi\":5}"))
+            (expected "{\"hello\":100,\"hi\":5}")
+            (*prototype-name* nil))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
 
 (test test-encode-json-alist-two
-      (let ((alist `((HELLO . 100)(hi . 5)))
-            (expected "{\"hello\":100,\"hi\":5}"))
-        (is (string= (with-output-to-string (s) (encode-json-alist alist s))
-                     expected))))
+  (let ((alist `((HELLO . 100)(hi . 5)))
+        (expected "{\"hello\":100,\"hi\":5}")
+        (*prototype-name* nil))
+    (is (string= (with-output-to-string (s) (encode-json-alist alist s))
+                   expected))))
 
 (test test-encode-json-alist-string
-      (let ((alist `((:hello . "hej")(:hi . "tjena")))
+      (let ((*prototype-name* nil)
+            (alist `((:hello . "hej")(:hi . "tjena")))
             (expected "{\"hello\":\"hej\",\"hi\":\"tjena\"}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
 
 (test test-encode-json-alist-camel-case
       (let ((alist `((:hello-message . "hej")(*also-starting-with-upper . "hej")))
-            (expected "{\"helloMessage\":\"hej\",\"AlsoStartingWithUpper\":\"hej\"}"))
+            (expected "{\"helloMessage\":\"hej\",\"AlsoStartingWithUpper\":\"hej\"}")
+            (*prototype-name* nil))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
  
@@ -93,12 +98,13 @@
   (decode-then-encode "[[[[[[[[[[[[[[[[[[[\"Not too deep\"]]]]]]]]]]]]]]]]]]]"))
 
 (test encode-pass-3
-  (decode-then-encode "{
+  (let ((*prototype-name* nil))
+    (decode-then-encode "{
     \"JSON Test Pattern pass3\": {
         \"The outermost value\": \"must be an object or array.\"
     }
 }
-"))
+")))
 
 ;; Test inspired by the file pass1. 
 ;; There are too many small differences just to decode-encode the whole pass1 file,
@@ -167,13 +173,15 @@
 
 
 (test hash-table-symbol
-  (let ((ht (make-hash-table)))
+  (let ((ht (make-hash-table))
+        (*prototype-name* nil))
     (setf (gethash 'symbols-are-now-converted-to-camel-case ht) 5)
     (is (string= (encode-json-to-string ht)
                  "{\"symbolsAreNowConvertedToCamelCase\":5}"))))
 
 (test hash-table-string
-  (let ((ht (make-hash-table :test #'equal)))
+  (let ((ht (make-hash-table :test #'equal))
+        (*prototype-name* nil))
     (setf (gethash "lower x" ht) 5)
     (is (string= (encode-json-to-string ht)
                  "{\"lower x\":5}"))))
