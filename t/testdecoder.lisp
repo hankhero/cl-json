@@ -39,16 +39,103 @@ returned!"
               (decode-json-from-string "[]"))))
 
 
+(defgeneric equal-objects-p (object1 object2)
+  (:method (object1 object2)
+    (equalp object1 object2))
+  (:method ((object1 standard-object) (object2 standard-object))
+    (let ((class1 (class-of object1))
+          (class2 (class-of object2)))
+      (and (or (eql class1 class2)
+               (and (equal (class-name class1) (class-name class2))
+                    (not (set-exclusive-or
+                          (json::class-slots class1)
+                          (json::class-slots class2)
+                          :key #'json::slot-definition-name
+                          :test #'equal))))
+           (loop for slot in (json::class-slots class1)
+              for slot-name = (json::slot-definition-name slot)
+              always (if (slot-boundp object1 slot-name)
+                         (and (slot-boundp object2 slot-name)
+                              (equal-objects-p
+                               (slot-value object1 slot-name)
+                               (slot-value object2 slot-name)))
+                         (not (slot-boundp object2 slot-name))))))))
+
 (test json-object
-  (with-list-decoder-semantics
-    (let ((*json-symbols-package* (find-package :keyword)))
-      (is (equalp '((:hello . "hej")
-                    (:hi . "tjena"))
-                  (decode-json-from-string " { \"hello\" : \"hej\" ,
+  (let ((*json-symbols-package* (find-package :keyword))
+        (input " { \"hello\" : \"hej\" ,
                        \"hi\" : \"tjena\"
-                     }"))))
-    (is-false (decode-json-from-string " {  } "))
-    (is-false (decode-json-from-string "{}"))))
+                     }"))
+    (with-list-decoder-semantics
+      (is (equalp '((:hello . "hej") (:hi . "tjena"))
+                  (decode-json-from-string input)))
+      (is-false (decode-json-from-string " {  } "))
+      (is-false (decode-json-from-string "{}")))
+    (with-clos-decoder-semantics
+      (is (equal-objects-p
+           (json::make-object '((:hello . "hej") (:hi . "tjena")) nil)
+           (decode-json-from-string input)))
+      (is-false (class-name (class-of (decode-json-from-string input))))
+      (is (equal-objects-p
+           (decode-json-from-string "{ }")
+           (json::make-object nil nil)))
+      (is (eql (class-of (decode-json-from-string "{}"))
+               (find-class 'standard-object))))))
+
+(defclass foo () ((bar :initarg :bar) (baz :initarg :baz)))
+(defclass goo () ((quux :initarg :quux :initform 933)))
+(defclass frob (foo goo) ())
+(defclass p-frob (frob) ((prototype :reader prototype)))
+
+(test json-object-with-prototype
+  (let ((*json-symbols-package* (find-package :keyword))
+        (*prototype-name* 'prototype)
+        (input "{\"bar\": 46,
+                 \"xyzzy\": true,
+                 \"quux\": 98,
+                 \"prototype\": ~A}"))
+    (with-list-decoder-semantics
+      (is (equalp
+           (decode-json-from-string
+            (format nil input "{\"lispPackage\":\"jsonTest\",
+                                \"lispClass\":\"frob\"}"))
+           '((:bar . 46) (:xyzzy . t) (:quux . 98)
+             (:prototype . ((:lisp-package . "jsonTest")
+                            (:lisp-class . "frob")))))))
+    (with-clos-decoder-semantics
+      (is (equal-objects-p
+           (make-instance 'frob :bar 46 :quux 98)
+           (decode-json-from-string
+            (format nil input "{\"lispPackage\":\"jsonTest\",
+                                \"lispClass\":\"frob\"}"))))
+      (is (equal-objects-p
+           (json::make-object '((bar . 46) (xyzzy . t) (quux . 98))
+                              nil :superclasses '(foo goo))
+           (decode-json-from-string
+            (format nil input "{\"lispSuperclasses\": [\"foo\", \"goo\"],
+                                \"lispPackage\":\"jsonTest\"}"))))
+      (is (typep
+           (prototype (decode-json-from-string
+                       (format nil input "{\"lispPackage\":\"jsonTest\",
+                                           \"lispClass\":\"pFrob\"}")))
+           'prototype))
+      (is (equalp
+           '((bar . 46) (xyzzy . t) (quux . 98))
+           (decode-json-from-string
+            (format nil input "{\"lispClass\": \"cons\",
+                                \"lispPackage\":\"jsonTest\"}"))))
+      (is (loop with ht = (decode-json-from-string
+                           (format nil input "{\"lispClass\": \"hashTable\",
+                                               \"lispPackage\":\"jsonTest\"}"))
+             initially (if (/= (hash-table-count ht) 3) (return nil))
+             for k being each hash-key of ht
+             using (hash-value v)
+             always (case k
+                      (bar (eql v 46))
+                      (xyzzy (eql v t))
+                      (quux (eql v 98))
+                      (t nil)))))))
+
 
 (test json-object-factory
   (let ((*json-object-factory* #'(lambda ()
