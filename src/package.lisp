@@ -26,6 +26,8 @@
     #:encode-json-plist-to-string    
 
     #:json-bind
+
+    #:prototype
     )
   (:import-from #+(or mcl openmcl) #:ccl
                 #+cmu #:clos-mop
