@@ -72,6 +72,16 @@
   (:default-initargs :lisp-class nil :lisp-superclasses nil
                      :lisp-package nil))
 
+(defmethod make-load-form ((prototype prototype) &optional environment)
+  (declare (ignore environment))
+  `(make-instance 'prototype
+     ,@(if (slot-boundp prototype 'lisp-class)
+           `(:lisp-class ,(lisp-class prototype)))
+     ,@(if (slot-boundp prototype 'lisp-superclasses)
+           `(:lisp-superclasses ,(lisp-superclasses prototype)))
+     ,@(if (slot-boundp prototype 'lisp-package)
+           `(:lisp-package ,(lisp-package prototype)))))
+
 (defun max-package (symbols &key ((:initial-value package)
                                   (find-package '#:common-lisp)))
   (labels ((symbol-in-package-p (symbol)
