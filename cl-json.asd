@@ -19,10 +19,12 @@
                              (:file "symboltojs" :depends-on ("package"))
                              (:file "common" :depends-on ("package" "symboltojs"))
                              (:file "objects" :depends-on ("package"))
-                             (:file "decoder" :depends-on ("common" "objects"))
-                             (:file "encoder" :depends-on ("common" "objects"))
+                             (:file "camel-case" :depends-on ("package"))
+                             (:file "decoder" :depends-on ("common" "objects" "camel-case"))
+                             (:file "encoder" :depends-on ("common" "objects" "camel-case"))
                              (:file "utils" :depends-on ("decoder" "encoder"))
-                             (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder"))))))
+                             (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder")))))
+  :depends-on (:parenscript))
 
 (defsystem :cl-json.test
   :depends-on (:cl-json :fiveam )
