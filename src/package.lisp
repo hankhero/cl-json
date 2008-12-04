@@ -1,3 +1,7 @@
+;;;; Copyright (c) 2006-2008 Henrik Hjelte
+;;;; All rights reserved.
+;;;; See the file LICENSE for terms of use and distribution.
+
 (defpackage :json
   (:use :common-lisp)
   (:export

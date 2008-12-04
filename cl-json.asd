@@ -1,4 +1,7 @@
 ;;; -*- lisp -*-
+;;; Copyright (c) 2006-2008 Henrik Hjelte
+;;; All rights reserved.
+;;; See the file LICENSE for terms of use and distribution.
 
 (in-package #:cl-user)
 
