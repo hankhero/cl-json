@@ -4,279 +4,442 @@
 
 (in-package :json)
 
-(defvar *json-symbols-package* (find-package 'keyword)
-  "The package where json-symbols are interned. Default keyword, nil = current package")
 
-(defparameter *json-rules* nil)
+;;; Token reader
 
-(defparameter *json-object-prototype* nil)
+(define-condition json-syntax-error (simple-error stream-error)
+  ((stream-file-position :reader stream-error-stream-file-position
+                         :initarg :stream-file-position))
+  (:report
+   (lambda (condition stream)
+     (format stream "~? [in ~S~@[ at position ~D~]]"
+             (simple-condition-format-control condition)
+             (simple-condition-format-arguments condition)
+             (stream-error-stream condition)
+             (stream-error-stream-file-position condition)))))
 
-(defparameter *json-object-factory* #'(lambda () nil))
-(defvar  *json-object-factory-add-key-value*)
-(defvar *json-object-factory-return*)
+(defun json-syntax-error (stream format-control &rest format-arguments)
+  (error 'json-syntax-error
+         :stream stream
+         :stream-file-position (file-position stream)
+         :format-control format-control
+         :format-arguments format-arguments))
 
-(defvar *json-array-type*)
-(defparameter *json-make-big-number* #'(lambda (number-string)
-                                         (format nil "BIGNUMBER:~a" number-string)))
+(defun read-json-token (stream)
+  (let ((c (peek-char t stream)))
+    (case c
+      ((#\{ #\[ #\] #\} #\" #\: #\,)
+       (values :punct (read-char stream)))
+      ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\-)
+       (read-json-number-token stream))
+      (t (if (alpha-char-p c)
+             (read-json-symbol-token stream)
+             (json-syntax-error stream "Invalid char on JSON input: `~C'"
+                                c))))))
 
-(defun json-factory-make-object (factory)
-  (flet ((intern-keys (alist package)
-           (let ((*json-symbols-package* package))
-             (loop for (key . value) in alist with ret
-                do (push (cons (json-intern key) value) ret)
-                finally (return ret)))))
-    (if (eq *json-object-prototype* t)
-        (make-object (intern-keys factory '#:json) (find-class 'prototype))
-        (multiple-value-bind (package class superclasses)
-            (if *json-object-prototype*
-                (values (lisp-package *json-object-prototype*)
-                        (lisp-class *json-object-prototype*)
-                        (lisp-superclasses *json-object-prototype*)))
-          (let* ((*json-symbols-package*
-                  (if package
-                      (find-package (camel-case-to-lisp (string package)))
-                      *json-symbols-package*))
-                 (bindings
-                  (intern-keys factory *json-symbols-package*)))
-            (maybe-add-prototype
-             (if class
-                 (make-object bindings
-                              (if (symbolp class)
-                                  class
-                                  (json-intern (string class))))
-                 (make-object bindings nil
-                              :superclasses (loop for super in superclasses
-                                               collect (json-intern (string super)))))
-             *json-object-prototype*))))))
+(defun read-json-number-token (stream)
+  (let ((int (make-array 32 :adjustable t :fill-pointer 0
+                         :element-type 'character))
+        (frac (make-array 32 :adjustable t :fill-pointer 0
+                          :element-type 'character))
+        (exp (make-array 32 :adjustable t :fill-pointer 0
+                         :element-type 'character))
+        (type :integer)
+        c)
+    (flet ((safe-read-char (stream)
+             (handler-case (read-char stream)
+               (end-of-file ()
+                 (return-from read-json-number-token
+                   (values type (concatenate 'string int frac exp)))))))
+      (macrolet
+          ((read-digits (part)
+             (let ((error-fmt
+                    (format nil "Invalid JSON number: no ~(~A~) digits"
+                            part)))
+               `(loop while (char<= #\0 c #\9)
+                   with count = 0
+                   do (vector-push-extend c ,part 32)
+                      (setq c (safe-read-char stream))
+                      (incf count)
+                   finally
+                     (if (zerop count)
+                         (json-syntax-error stream ,error-fmt))))))
+        (setq c (read-char stream))
+        (when (char= c #\-)
+          (vector-push c int)
+          (setq c (read-char stream)))
+        (if (char= c #\0)
+            (progn
+              (vector-push c int)
+              (setq c (safe-read-char stream)))
+            (read-digits int))
+        (when (char= c #\.)
+          (vector-push c frac)
+          (setq c (read-char stream)
+                type :real)
+          (read-digits frac))
+        (when (char-equal c #\e)
+          (vector-push c exp)
+          (setq c (read-char stream)
+                type :real)
+          (when (or (char= c #\+) (char= c #\-))
+            (vector-push c exp)
+            (setq c (read-char stream)))
+          (read-digits exp))
+        (unread-char c stream)
+        (values type (concatenate 'string int frac exp))))))
 
-(defun set-list-decoder-semantics ()
-  (setf *json-object-prototype* nil
-        *json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                (push (cons (json-intern key) value)
-                                                      obj))
-        *json-object-factory-return* #'(lambda (obj) (nreverse obj))
-        *json-array-type* 'list
-        *prototype-name* nil))
+(defun read-json-symbol-token (stream)
+  (let ((symbol (make-array 8 :adjustable t :fill-pointer 0
+                            :element-type 'character)))
+    (loop for c = (read-char stream nil)
+       while (and c (alpha-char-p c))
+       do (vector-push-extend c symbol 32)
+       finally (if c (unread-char c stream)))
+    (setq symbol (coerce symbol 'string))
+    (if (assoc symbol +json-lisp-symbol-tokens+ :test #'equal)
+        (values :boolean symbol)
+        (json-syntax-error stream "Invalid JSON symbol: ~A" symbol))))
 
-(defun set-clos-decoder-semantics ()
-  (setf *json-object-prototype* nil
-        *json-array-type* 'vector
-        *json-object-factory-return* #'json-factory-make-object
-        *json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                (push (cons key value)
-                                                      obj))
-        *prototype-name* 'prototype))
+(define-condition no-char-for-code (error)
+  ((offending-code :initarg :code :reader offending-code))
+  (:report (lambda (condition stream)
+             (format stream "No character corresponds to code #x~4,'0X."
+                     (offending-code condition)))))
 
-(set-list-decoder-semantics)
-;; yes, put the old style as the default
-;; until the clos-decoder is tested and integrated.
+(defun read-json-string-char (stream)
+  (let ((esc-error-fmt "Invalid JSON character escape sequence: ~A~A")
+        (c (read-char stream)))
+    (case c
+      (#\" nil)                         ; End of string
+      (#\\ (let ((c (read-char stream)))
+             (let ((unescaped (cdr (assoc c +json-lisp-escaped-chars+))))
+               (typecase unescaped
+                 (char unescaped)
+                 (cons
+                  (destructuring-bind (len . rdx) unescaped
+                    (let ((code
+                           (let ((repr (make-string len)))
+                             (dotimes (i len)
+                               (setf (aref repr i) (read-char stream)))
+                             (handler-case (parse-integer repr :radix rdx)
+                               (parse-error ()
+                                 (json-syntax-error stream esc-error-fmt
+                                                    (format nil "\\~C" c)
+                                                    repr))))))
+                      (if (< code char-code-limit)
+                          (code-char code)
+                          (restart-case
+                              (error 'no-char-for-code :code code)
+                            (substitute-char (char)
+                              :report "Substitute another char."
+                              :interactive
+                              (lambda ()
+                                (format *query-io* "Char: ")
+                                (list (read-char *query-io*)))
+                              char)
+                            (pass-code ()
+                              :report "Pass the code to char handler."
+                              c))))))
+                 (t (if *use-strict-json-rules*
+                        (json-syntax-error stream esc-error-fmt "\\" c)
+                        c))))))
+      (t c))))
 
-(defmacro with-shadowed-json-variables (&body body)
-  `(let (*json-object-prototype*
-         *json-array-type*
-         *json-object-factory-add-key-value*
-         *json-object-factory-return*
-         *prototype-name*)
-     ,@body))
 
-(defmacro with-list-decoder-semantics (&body body)
-  `(with-shadowed-json-variables
-     (set-list-decoder-semantics)
-     ,@body))
+;;; The decoder base
 
-(defmacro with-clos-decoder-semantics (&body body)
-  `(with-shadowed-json-variables
-     (set-clos-decoder-semantics)
-     ,@body))
+(define-custom-var (:integer *integer-handler*))
+(define-custom-var (:real *real-handler*))
+(define-custom-var (:boolean *boolean-handler*))
 
+(define-custom-var (:beginning-of-string *beginning-of-string-handler*))
+(define-custom-var (:string-char *string-char-handler*))
+(define-custom-var (:end-of-string *end-of-string-handler*))
 
-(defun json-intern (string)
-  (if *json-symbols-package*
-      (intern (camel-case-to-lisp string) *json-symbols-package*)
-      (intern (camel-case-to-lisp string))))
+(define-custom-var (:beginning-of-array *beginning-of-array-handler*))
+(define-custom-var (:array-element *array-element-handler*))
+(define-custom-var (:end-of-array *end-of-array-handler*))
 
+(define-custom-var (:beginning-of-object *beginning-of-object-handler*))
+(define-custom-var (:object-key *object-key-handler*))
+(define-custom-var (:object-value *object-value-handler*))
+(define-custom-var (:end-of-object *end-of-object-handler*))
 
-(define-condition json-parse-error (error) ())
+(define-custom-var (:structure-scope-variables *structure-scope-variables*)
+    nil)
+
+(defun decode-json (&optional (stream *standard-input*))
+  "Read a JSON value from STREAM."
+  (multiple-value-bind (type token) (read-json-token stream)
+    (dispatch-on-token type token stream)))
 
 (defun decode-json-from-string (json-string)
+  "Read a JSON value from JSON-STRING."
   (with-input-from-string (stream json-string)
     (decode-json stream)))
 
-(defun decode-json (&optional (stream *standard-input*))
-  "Reads a json element from stream"
-  (funcall (or (cdr (assoc (peek-char t stream) *json-rules*))
-               #'read-json-number)
-           stream))
-
 (defun decode-json-strict (&optional (stream *standard-input*))
-  "Only objects or arrays on top level, no junk afterwards."
+  "Same as DECODE-JSON, but allow only objects or arrays on the top
+level, no junk afterwards."
   (assert (member (peek-char t stream) '(#\{ #\[)))
   (let ((object (decode-json stream)))
     (assert (eq :no-junk (peek-char t stream nil :no-junk)))
     object))
 
-;;-----------------------
+(defun dispatch-on-token (type token stream)
+  (ecase type
+    (:punct
+     (case token
+       (#\" (decode-json-string stream))
+       (#\[ (decode-json-array stream))
+       (#\{ (decode-json-object stream))
+       (t (json-syntax-error stream
+                             "Token out of place on JSON input: `~C'"
+                             token))))
+    (:integer (funcall *integer-handler* token))
+    (:real (funcall *real-handler* token))
+    (:boolean (funcall *boolean-handler* token))))
 
-
-(defun add-json-dispatch-rule (character fn)
-  (push (cons character fn) *json-rules*))
-
-(add-json-dispatch-rule #\t #'(lambda (stream) (read-constant stream "true" t)))
-
-(add-json-dispatch-rule #\f #'(lambda (stream) (read-constant stream "false" nil)))
-
-(add-json-dispatch-rule #\n #'(lambda (stream) (read-constant stream "null" nil)))
-
-(defun read-constant (stream expected-string ret-value)
-  (loop for x across expected-string
-        for ch = (read-char stream nil nil)
-        always (char= ch x)
-        finally (return ret-value)))
-
-(defun read-json-string (stream)
-  (read-char stream)
-  (let ((val (read-json-chars stream '(#\"))))
-    (read-char stream)
-    val))
-
-(add-json-dispatch-rule #\" #'read-json-string)
-
-
-(defun read-json-object (stream)
-  (read-char stream)
-  (let ((obj (funcall *json-object-factory*))
-        (prototype *json-object-prototype*))
-    (if (char= #\} (peek-char t stream))
-        (read-char stream)
-        (loop for key = (progn (peek-char t stream) (read-json-string stream))
-              with prototype-name =
-                (if *prototype-name*
-                    (funcall *symbol-to-string-fn* *prototype-name*)
-                    "")
-              for value =
-                (progn
-                  (if (and (not prototype) (string= key prototype-name))
-                      (setq prototype t))
-                  (peek-char t stream)
-                  (assert (char= #\: (read-char stream)))
-                  (let ((*json-object-prototype* prototype)
-                        (*json-array-type*
-                         ;; The list of superclasses should be read as list
-                         (if (eq prototype t) 'list *json-array-type*)))
-                    (decode-json stream)))
-              for terminator = (peek-char t stream)
-              do (assert (member (read-char stream) '(#\, #\})))
-              if (typep value 'prototype)
-                do (setf prototype value)
-              else
-                do (setf obj (funcall *json-object-factory-add-key-value* obj key value))
-              until (char= #\} terminator)))
-    (let ((*json-object-prototype* prototype))
-      (funcall *json-object-factory-return* obj))))
-
-;; Before decoding to CLOS this used to be like this:
-;;   (defun read-json-object (stream)
-;;     (read-char stream)
-;;     (let ((obj (funcall *json-object-factory*)))
-;;       (if (char= #\} (peek-char t stream))
-;;           (read-char stream)
-;;           (loop for skip-whitepace = (peek-char t stream)
-;;                 for key = (read-json-string stream)
-;;                 for separator = (peek-char t stream)
-;;                 for skip-separator = (assert (char= #\: (read-char stream)))
-;;                 for value = (decode-json stream)
-;;                 for terminator = (peek-char t stream)
-;;                 for skip-terminator = (assert (member (read-char stream) '(#\, #\})))
-;;                 do (setf obj (funcall *json-object-factory-add-key-value* obj key value))
-;;                 until (char= #\} terminator)))
-;;       (funcall *json-object-factory-return* obj)))
-
-
-(add-json-dispatch-rule #\{ #'read-json-object)
-
-(defun read-json-array (stream)
-  (read-char stream)
-  (coerce
-   (if (char= #\] (peek-char t stream))
-       (progn (read-char stream) nil)
-       (loop for first-in-element = (assert (not (member (peek-char t stream) '(#\, #\]))))
-             for element = (decode-json stream)
-             for terminator = (peek-char t stream)
-             for skip-terminator = (assert (member (read-char stream) '(#\, #\])))
-             collect element
-             until (char= #\] terminator)))
-   *json-array-type*))
-
-(add-json-dispatch-rule #\[ #'read-json-array)
-
-(defparameter +digits+ '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
-(defparameter +json-number-valid-chars+ (concatenate 'list +digits+ '(#\e #\E #\. #\+ #\-)))
-
-(defun read-json-number (stream)
-  (let ((number-string (read-chars-until stream
-                                         :terminator-fn #'(lambda (ch)
-                                                            (not (member ch +json-number-valid-chars+))))))
-    (assert (if (char= (char number-string 0) #\0)
-                (or (= 1 (length number-string)) (char= #\. (char number-string 1)))
-                t))
-    (handler-case 
-        (read-from-string number-string)
-      (serious-condition (e)
-        (let ((e-pos (or (position #\e number-string)
-                         (position #\E number-string))))
-          (if e-pos
-              (handler-case
-                  (read-from-string (substitute #\l (aref number-string e-pos) number-string))
-                (serious-condition ()
-                  (funcall *json-make-big-number* number-string)))
-              (error "Unexpected error ~S" e)))))))
+(defmacro structure-scope-progv (&body body)
+  `(progv *structure-scope-variables*
+       (mapcar #'symbol-value *structure-scope-variables*)
+     ,@body))
     
-(defun read-chars-until(stream &key terminator-fn (char-converter #'(lambda (ch stream)
-                                                                       (declare (ignore stream))
-                                                                       ch)))
-  (with-output-to-string (ostr)
+(defun decode-json-array (stream)
+  (structure-scope-progv
+    (funcall *beginning-of-array-handler*)
+    (multiple-value-bind (type token) (read-json-token stream)
+      (if (and (eql type :punct) (char= token #\]))
+          (return-from decode-json-array
+            (funcall *end-of-array-handler*))
+          (funcall *array-element-handler*
+                   (dispatch-on-token type token stream))))
     (loop
-     (let ((ch (peek-char nil stream nil nil)))
-       (when (or (null ch)
-                 (funcall terminator-fn ch))
-         (return))
-       (write-char (funcall char-converter
-                            (read-char stream nil nil)
-                            stream)
-                   ostr)))))
-       
-(defun read-n-chars (stream n)
-  (with-output-to-string (ostr)
-    (dotimes (x n)
-      (write-char (read-char stream) ostr))))
-  
-(defun read-json-chars(stream terminators)
-  (read-chars-until stream :terminator-fn #'(lambda (ch)
-                                              (member ch terminators))
-                    :char-converter #'(lambda (ch stream)
-                                        (if (char= ch #\\)
-                                            (if (char= #\u (peek-char nil stream))
-                                                (code-char (parse-integer (read-n-chars stream 5) :start 1 :radix 16))
-                                                (json-escaped-char-to-lisp (read-char stream)))
-                                            ch))))
+       (multiple-value-bind (type token) (read-json-token stream)
+         (if (eql type :punct)
+             (case token
+               (#\] (return-from decode-json-array
+                      (funcall *end-of-array-handler*)))
+               (#\, (setq token nil))))
+         (if token
+             (json-syntax-error
+              stream
+              "Token out of place in array on JSON input: `~A'"
+              token)))
+       (funcall *array-element-handler* (decode-json stream)))))
 
-(defun camel-case-to-lisp (string)
-  "Converts a string in camelCase to the same lisp-friendly syntax used in parenscript.
+(defun decode-json-object (stream)
+  (structure-scope-progv
+   (loop with key = nil
+      for first-time-p = t then nil
+      initially (funcall *beginning-of-object-handler*)
+      do (multiple-value-bind (type token) (read-json-token stream)
+           (if (eql type :punct)
+               (case token
+                 (#\}
+                  (if first-time-p
+                      (return-from decode-json-object
+                        (funcall *end-of-object-handler*))))
+                 (#\"
+                  (setq key (decode-json-string stream)))))
+           (if key
+               (funcall *object-key-handler* key)
+               (json-syntax-error
+                stream
+                "Expected a key string in object on JSON input ~
+                 but found `~A'"
+                token)))
+        (multiple-value-bind (type token) (read-json-token stream)
+          (unless (and (eql type :punct) (char= token #\:))
+            (json-syntax-error
+             stream
+             "Expected a `:' separator in object on JSON input ~
+              but found `~A'"
+             token)))
+        (funcall *object-value-handler* (decode-json stream))
+        (multiple-value-bind (type token) (read-json-token stream)
+          (if (eql type :punct)
+              (case token
+                (#\} (return-from decode-json-object
+                       (funcall *end-of-object-handler*)))
+                (#\, (setq key nil))))
+          (if key
+              (json-syntax-error
+               stream
+               "Expected a `,' separator or `}' in object on JSON input ~
+                but found `~A'"
+               token))))))
 
-(camel-case-to-string \"camelCase\") -> \"CAMEL-CASE\"
-(camel-case-to-string \"CamelCase\") -> \"*CAMEL-CASE\"
-(camel-case-to-string \"dojo.widget.TreeNode\") -> \"DOJO.WIDGET.*TREE-NODE\"
-"
-;;;; double-quote to help emacs " 
-  (with-output-to-string (out)
-    (loop for ch across string
-          with last-char do
-          (if (upper-case-p ch)
-              (progn 
-                (if (and last-char (lower-case-p last-char))
-                    (write-char #\- out)
-                    (write-char #\* out))
-                (write-char ch out))
-              (write-char (char-upcase ch) out))
-          (setf last-char ch)))) 
+(defun decode-json-string (stream)
+  (structure-scope-progv
+   (loop initially (funcall *beginning-of-string-handler*)
+      for c = (read-json-string-char stream)
+      while c
+      do (funcall *string-char-handler* c)
+      finally (return (funcall *end-of-string-handler*)))))
 
+
+;;; The list semantics
+
+(defvar *json-array-type* 'vector
+  "The Lisp sequence type to which JSON arrays are to be coerced.")
+
+(defun parse-number (token)
+  ;; We can be reasonably sure that nothing but well-formed (both in
+  ;; JSON and Lisp sense) number literals gets to this point.
+  (read-from-string token))
+
+(defun json-boolean-to-lisp (token)
+  ;; We can be reasonably sure that nothing but well-formed boolean
+  ;; literals gets to this point.
+  (cdr (assoc token +json-lisp-symbol-tokens+ :test #'string=)))
+
+(defvar *accumulator* nil)
+(defvar *accumulator-last* nil)
+
+(defun init-accumulator ()
+  (let ((head (cons nil nil)))
+    (setq *accumulator* head)
+    (setq *accumulator-last* head)))
+
+(defun accumulator-add (element)
+  (setq *accumulator-last*
+        (setf (cdr *accumulator-last*) (cons element nil))))
+
+(defun accumulator-add-key (key)
+  (let ((key (json-intern (camel-case-to-lisp key))))
+    (setq *accumulator-last*
+          (setf (cdr *accumulator-last*) (cons (cons key nil) nil)))))
+
+(defun accumulator-add-value (value)
+  (setf (cdar *accumulator-last*) value)
+  *accumulator-last*)
+
+(defun accumulator-get-sequence ()
+  (coerce (cdr *accumulator*) *json-array-type*))
+
+(defun accumulator-get ()
+  (cdr *accumulator*))
+
+(defun init-vector-accumulator ()
+  (setq *accumulator*
+        (make-array 32 :adjustable t :fill-pointer 0)))
+
+(defun vector-accumulator-add (element)
+  (vector-push-extend element *accumulator* (fill-pointer *accumulator*))
+  *accumulator*)
+
+(defun vector-accumulator-get-sequence ()
+  (coerce *accumulator* *json-array-type*))
+
+(defun vector-accumulator-get-string ()
+  (coerce *accumulator* 'string))
+
+(defun set-decoder-simple-list-semantics ()
+  (set-custom-vars
+   :integer #'parse-number
+   :real #'parse-number
+   :boolean #'json-boolean-to-lisp
+   :beginning-of-array #'init-accumulator
+   :array-element #'accumulator-add
+   :end-of-array #'accumulator-get-sequence
+   :beginning-of-object #'init-accumulator
+   :object-key #'accumulator-add-key
+   :object-value #'accumulator-add-value
+   :end-of-object #'accumulator-get
+   :beginning-of-string #'init-vector-accumulator
+   :string-char #'vector-accumulator-add
+   :end-of-string #'vector-accumulator-get-string
+   :structure-scope-variables
+     (union *structure-scope-variables*
+            '(*accumulator* *accumulator-last*))))
+
+(defmacro with-decoder-simple-list-semantics (&body body)
+  `(with-shadowed-custom-vars
+     (set-decoder-simple-list-semantics)
+     ,@body))
+
+
+;;; The CLOS semantics
+
+(defvar *prototype-prototype*
+  (make-instance 'prototype
+    :lisp-class 'prototype
+    :lisp-package :json))
+
+(defvar *prototype* nil)
+
+(defun init-accumulator-and-prototype ()
+  (init-accumulator)
+  (setq *prototype*
+        (if (eql *prototype* t) *prototype-prototype* nil)))
+
+(defun accumulator-add-key-or-set-prototype (key)
+  (let ((key (camel-case-to-lisp key)))
+    (if (and (not *prototype*)
+             *prototype-name*
+             (string= key (symbol-name *prototype-name*)))
+        (setq *prototype* t)
+        (setq *accumulator-last*
+              (setf (cdr *accumulator-last*) (cons (cons key nil) nil))))
+    *accumulator*))
+
+(defun accumulator-add-value-or-set-prototype (value)
+  (if (eql *prototype* t)
+      (progn
+        (assert (typep value 'prototype) (value)
+          "Invalid prototype: ~S.  Want to substitute something else?"
+          value)
+        (setq *prototype* value)
+        *accumulator*)
+      (accumulator-add-value value)))
+
+(defun accumulator-get-object ()
+  (flet ((as-symbol (value)
+           (if (stringp value)
+               (json-intern (camel-case-to-lisp value))
+               value))
+         (intern-keys (bindings)
+           (loop for (key . value) in bindings
+              collect (cons (json-intern key) value))))
+    (if (typep *prototype* 'prototype)
+        (with-slots (lisp-class lisp-superclasses lisp-package)
+            *prototype*
+          (let* ((*json-symbols-package*
+                  (or (find-package (as-symbol lisp-package))
+                      *json-symbols-package*))
+                 (class (as-symbol lisp-class))
+                 (superclasses (mapcar #'as-symbol lisp-superclasses)))
+            (make-object (intern-keys (cdr *accumulator*)) class
+                           :superclasses superclasses)))
+        (make-object (intern-keys (cdr *accumulator*)) nil))))
+
+(defun set-decoder-simple-clos-semantics ()
+  (set-custom-vars
+   :integer #'parse-number
+   :real #'parse-number
+   :boolean #'json-boolean-to-lisp
+   :beginning-of-array #'init-vector-accumulator
+   :array-element #'vector-accumulator-add
+   :end-of-array #'vector-accumulator-get-sequence
+   :beginning-of-object #'init-accumulator-and-prototype
+   :object-key #'accumulator-add-key-or-set-prototype
+   :object-value #'accumulator-add-value-or-set-prototype
+   :end-of-object #'accumulator-get-object
+   :beginning-of-string #'init-vector-accumulator
+   :string-char #'vector-accumulator-add
+   :end-of-string #'vector-accumulator-get-string
+   :structure-scope-variables
+     (union *structure-scope-variables*
+            '(*accumulator* *accumulator-last* *prototype*))))
+
+(defmacro with-decoder-simple-clos-semantics (&body body)
+  `(with-shadowed-custom-vars
+     (set-decoder-simple-clos-semantics)
+     ,@body))
+
+
+;;; List semantics is the default.
+
+(set-decoder-simple-list-semantics)

@@ -4,25 +4,56 @@
 
 (in-package :json)
 
+
+;;; Custom variables
+
+(eval-when (:compile-toplevel :load-toplevel)
+
+(defvar *custom-vars* nil)
+
+(defmacro with-shadowed-custom-vars (&body body)
+  `(let ,(loop for (var) in *custom-vars*
+            collect `(,var (if (boundp ',var) ,var)))
+     ,@body))
+
+(defmacro set-custom-vars (&rest key-args)
+  `(setq
+    ,@(loop for (supplied-key value) on key-args by #'cddr
+         append (loop for (var . var-key) in *custom-vars*
+                   thereis (if (eql var-key supplied-key)
+                               (list var value))))))
+
+)
+
+(defmacro define-custom-var ((key name) &rest other-args)
+  `(eval-when (:compile-toplevel :load-toplevel)
+     (progn (pushnew '(,name . ,key) *custom-vars* :test #'equal)
+            (defvar ,name ,@other-args))))
+
+
+;;; Characters
+
 (defparameter +json-lisp-escaped-chars+
-  `((#\" . #\")
+  '((#\" . #\")
     (#\\ . #\\)
     (#\/ . #\/)
     (#\b . #\Backspace)
-    (#\f . ,(code-char 12))
+    (#\f . #\)
     (#\n . #\Newline)
     (#\r . #\Return)
-    (#\t . #\Tab)))
+    (#\t . #\Tab)
+    (#\u . (4 . 16))))
 
-(defparameter *use-strict-json-rules* t)
+(defvar *use-strict-json-rules* t)
 
-(defparameter *symbol-to-string-fn* #'symbol-to-js)
 
-(defun json-escaped-char-to-lisp(json-escaped-char)
-  (let ((ch (cdr (assoc json-escaped-char +json-lisp-escaped-chars+))))
-    (if *use-strict-json-rules*
-        (or ch (error 'json-parse-error))
-        (or ch json-escaped-char))))
+;;; Symbols
 
-(defun lisp-special-char-to-json(lisp-char)
-    (car (rassoc lisp-char +json-lisp-escaped-chars+)))
+(defparameter *symbol-to-string-fn* #'js::symbol-to-js)
+
+(defvar *json-symbols-package* (find-package 'keyword)
+  "The package where json-symbols are interned.
+Default KEYWORD, nil = current package.")
+
+(defun json-intern (string)
+  (intern string *json-symbols-package*))
