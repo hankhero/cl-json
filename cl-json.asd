@@ -16,13 +16,13 @@
   :components ((:static-file "cl-json.asd")
                (:module :src
                 :components ((:file "package")
-                             (:file "common" :depends-on ("package"))
+                             (:file "symboltojs" :depends-on ("package"))
+                             (:file "common" :depends-on ("package" "symboltojs"))
                              (:file "objects" :depends-on ("package"))
                              (:file "decoder" :depends-on ("common" "objects"))
                              (:file "encoder" :depends-on ("common" "objects"))
                              (:file "utils" :depends-on ("decoder" "encoder"))
-                             (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder")))))
-  :depends-on (:parenscript))
+                             (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder"))))))
 
 (defsystem :cl-json.test
   :depends-on (:cl-json :fiveam )
