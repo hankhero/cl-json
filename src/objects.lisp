@@ -59,6 +59,11 @@
                         &key &allow-other-keys)
   (copy-seq bindings))
 
+(defmethod make-object (bindings (class (eql (find-class 'list)))
+                        &key &allow-other-keys)
+  (loop for (key . value) in bindings
+     collect key collect value))
+
 (defmethod make-object (bindings (class (eql (find-class 'hash-table)))
                         &key &allow-other-keys)
   (let ((table (make-hash-table)))
@@ -123,6 +128,12 @@
         :lisp-superclasses superclass-names
         :lisp-package (package-name* package))))
 
+(defmethod make-object-prototype ((class-name symbol) &optional slot-names)
+  (declare (ignore slot-names))
+  (make-instance 'prototype
+    :lisp-class class-name
+    :lisp-package (package-name* (symbol-package class-name))))
+
 (defmethod make-object-prototype ((object prototype) &optional slot-names)
   (declare (ignore object slot-names))
   nil)
@@ -135,35 +146,19 @@
           return (setf (slot-value object slot-name) prototype)))
   object)
 
-(defun make-object-slot-iterator (object)
-  (let ((slots
-         (loop for slot in (class-slots (class-of object))
-           for slot-name = (slot-definition-name slot)
-           if (slot-boundp object slot-name)
-             collect slot-name)))
-    (lambda ()
-      (loop until (endp slots)
-         for slot = (pop slots)
-         return (values t slot (slot-value object slot))))))
-
-(defmacro with-iterator-and-prototype (generator-fn object &body body)
-  (let ((add-proto (gensym)) (slot-names (gensym)))
-    `(let ((,add-proto (and *prototype-name* t))
-           (,slot-names nil))
-       (flet ((,generator-fn ()
-                (if (typep ,add-proto 'boolean)
-                    (multiple-value-bind (more name value) (,generator-fn)
-                      (cond
-                        (more
-                         (if (and ,add-proto (eq name *prototype-name*))
-                             (setq ,add-proto nil))
-                         (if (symbolp name)
-                             (push name ,slot-names))
-                         (values more name value))
-                        (,add-proto
-                         (let ((proto (make-object-prototype
-                                       ,object ,slot-names)))
-                           (if proto
-                               (values t *prototype-name*
-                                       (setq ,add-proto proto))))))))))
-         ,@body))))
+(defun map-object-slots-and-prototype (function object)
+  (loop for slot in (class-slots (class-of object))
+     for slot-name = (slot-definition-name slot)
+     with explicit-prototype = nil
+     if (slot-boundp object slot-name)
+       do (funcall function slot-name (slot-value object slot-name))
+       if *prototype-name*
+         if (eq slot-name *prototype-name*)
+           do (setq explicit-prototype t)
+         else unless explicit-prototype
+           collect slot-name into slot-names
+     finally
+       (if (and *prototype-name* (not explicit-prototype))
+           (let ((prototype
+                  (make-object-prototype object slot-names)))
+             (funcall function *prototype-name* prototype)))))

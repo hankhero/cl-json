@@ -56,4 +56,12 @@
 Default KEYWORD, nil = current package.")
 
 (defun json-intern (string)
-  (intern string *json-symbols-package*))
+  (intern string (or *json-symbols-package* *package*)))
+
+(defvar *json-identifier-name-to-lisp* 'camel-case-to-lisp
+  "Designator of a function which maps string (name of a JSON object
+key) to string (name of a Lisp symbol).")
+
+(defvar *lisp-identifier-name-to-json* 'lisp-to-camel-case
+  "Designator of a function which maps string (name of a Lisp symbol)
+to string (e. g. name of a JSON object key).")

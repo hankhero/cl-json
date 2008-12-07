@@ -288,7 +288,8 @@ level, no junk afterwards."
 (defun parse-number (token)
   ;; We can be reasonably sure that nothing but well-formed (both in
   ;; JSON and Lisp sense) number literals gets to this point.
-  (read-from-string token))
+  (let ((*read-default-float-format* 'long-float))
+    (read-from-string token)))
 
 (defun json-boolean-to-lisp (token)
   ;; We can be reasonably sure that nothing but well-formed boolean
@@ -308,7 +309,7 @@ level, no junk afterwards."
         (setf (cdr *accumulator-last*) (cons element nil))))
 
 (defun accumulator-add-key (key)
-  (let ((key (json-intern (camel-case-to-lisp key))))
+  (let ((key (json-intern (funcall *json-identifier-name-to-lisp* key))))
     (setq *accumulator-last*
           (setf (cdr *accumulator-last*) (cons (cons key nil) nil)))))
 
@@ -376,7 +377,7 @@ level, no junk afterwards."
         (if (eql *prototype* t) *prototype-prototype* nil)))
 
 (defun accumulator-add-key-or-set-prototype (key)
-  (let ((key (camel-case-to-lisp key)))
+  (let ((key (funcall *json-identifier-name-to-lisp* key)))
     (if (and (not *prototype*)
              *prototype-name*
              (string= key (symbol-name *prototype-name*)))
@@ -398,7 +399,7 @@ level, no junk afterwards."
 (defun accumulator-get-object ()
   (flet ((as-symbol (value)
            (if (stringp value)
-               (json-intern (camel-case-to-lisp value))
+               (json-intern (funcall *json-identifier-name-to-lisp* value))
                value))
          (intern-keys (bindings)
            (loop for (key . value) in bindings
