@@ -412,8 +412,10 @@ level, no junk afterwards."
                       *json-symbols-package*))
                  (class (as-symbol lisp-class))
                  (superclasses (mapcar #'as-symbol lisp-superclasses)))
-            (make-object (intern-keys (cdr *accumulator*)) class
-                           :superclasses superclasses)))
+            (maybe-add-prototype
+             (make-object (intern-keys (cdr *accumulator*)) class
+                          :superclasses superclasses)
+             *prototype*)))
         (make-object (intern-keys (cdr *accumulator*)) nil))))
 
 (defun set-decoder-simple-clos-semantics ()
