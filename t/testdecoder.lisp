@@ -108,6 +108,8 @@ returned!"
            (decode-json-from-string
             (format nil input "{\"lispPackage\":\"jsonTest\",
                                 \"lispClass\":\"frob\"}"))))
+      (finalize-inheritance (find-class 'foo))
+      (finalize-inheritance (find-class 'goo))
       (is (equal-objects-p
            (json::make-object '((bar . 46) (xyzzy . t) (quux . 98))
                               nil :superclasses '(foo goo))

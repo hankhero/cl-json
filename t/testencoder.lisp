@@ -117,6 +117,7 @@
 (defclass frob (foo goo) ())
 
 (test test-encode-json-clos
+  (finalize-inheritance (find-class 'goo))
   (let ((obj (make-instance 'foo
                :bar (json::make-object '((hello . 100) (hi . 5)) nil
                                        :superclasses '(goo))
@@ -128,6 +129,7 @@
     (is (string= (encode-json-to-string obj) expected))))
 
 (test test-encode-json-clos-with-prototype
+  (finalize-inheritance (find-class 'goo))
   (let ((obj (make-instance 'foo
                :bar (json::make-object '((hello . 100) (hi . 5)) nil
                                        :superclasses '(goo))
