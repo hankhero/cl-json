@@ -166,8 +166,9 @@
 (define-custom-var (:object-value *object-value-handler*))
 (define-custom-var (:end-of-object *end-of-object-handler*))
 
+(define-custom-var (:internal-decoder *internal-decoder*) 'decode-json)
 (define-custom-var (:structure-scope-variables *structure-scope-variables*)
-    nil)
+    '(*internal-decoder*))
 
 (defun decode-json (&optional (stream *standard-input*))
   "Read a JSON value from STREAM."
@@ -227,7 +228,8 @@ level, no junk afterwards."
               stream
               "Token out of place in array on JSON input: `~A'"
               token)))
-       (funcall *array-element-handler* (decode-json stream)))))
+       (funcall *array-element-handler*
+                (funcall *internal-decoder* stream)))))
 
 (defun decode-json-object (stream)
   (structure-scope-progv
@@ -257,7 +259,8 @@ level, no junk afterwards."
              "Expected a `:' separator in object on JSON input ~
               but found `~A'"
              token)))
-        (funcall *object-value-handler* (decode-json stream))
+        (funcall *object-value-handler*
+                 (funcall *internal-decoder* stream))
         (multiple-value-bind (type token) (read-json-token stream)
           (if (eql type :punct)
               (case token
