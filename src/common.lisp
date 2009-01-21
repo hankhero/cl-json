@@ -16,12 +16,27 @@
             collect `(,var (if (boundp ',var) ,var)))
      ,@body))
 
+(defun custom-key-to-variable (key)
+  (car (rassoc key *custom-vars*)))
+
+(defmacro loop-on-custom ((key var &optional value) &rest clauses)
+  (if value
+      (destructuring-bind (key-args . clauses) clauses
+        `(loop for (,key ,value) on ,key-args by #'cddr
+            for ,var = (custom-key-to-variable ,key)
+            if ,var ,@clauses))
+      `(loop for (,key . ,var) on *custom-vars*
+            ,@clauses)))
+
 (defmacro set-custom-vars (&rest key-args)
   `(setq
-    ,@(loop for (supplied-key value) on key-args by #'cddr
-         append (loop for (var . var-key) in *custom-vars*
-                   thereis (if (eql var-key supplied-key)
-                               (list var value))))))
+    ,@(loop-on-custom (key var value) key-args
+         append (list var value))))
+
+(defmacro bind-custom-vars ((&rest key-args) &body body)
+  `(let ,(loop-on-custom (key var value) key-args
+            collect (list var value))
+     ,@body))
 
 )
 
@@ -42,9 +57,13 @@
     (#\n . #\Newline)
     (#\r . #\Return)
     (#\t . #\Tab)
-    (#\u . (4 . 16))))
+    (#\u . (4 . 16)))
+  "Mapping between JSON string escape sequences and Lisp chars.")
 
-(defvar *use-strict-json-rules* t)
+(defvar *use-strict-json-rules* t
+  "If non-nil, signal error on unrecognized escape sequences in JSON
+strings.  If nil, translate any such sequence to the char after
+slash.")
 
 
 ;;; Symbols
@@ -56,6 +75,7 @@
 Default KEYWORD, nil = current package.")
 
 (defun json-intern (string)
+  "Intern STRING in the current *JSON-SYMBOLS-PACKAGE*."
   (intern string (or *json-symbols-package* *package*)))
 
 (defvar *json-identifier-name-to-lisp* 'camel-case-to-lisp
