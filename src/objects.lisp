@@ -146,19 +146,9 @@
           return (setf (slot-value object slot-name) prototype)))
   object)
 
-(defun map-object-slots-and-prototype (function object)
+(defun map-slots (function object)
+  "Call FUNCTION on the name and value of every bound slot in OBJECT."
   (loop for slot in (class-slots (class-of object))
      for slot-name = (slot-definition-name slot)
-     with explicit-prototype = nil
      if (slot-boundp object slot-name)
-       do (funcall function slot-name (slot-value object slot-name))
-       if *prototype-name*
-         if (eq slot-name *prototype-name*)
-           do (setq explicit-prototype t)
-         else unless explicit-prototype
-           collect slot-name into slot-names
-     finally
-       (if (and *prototype-name* (not explicit-prototype))
-           (let ((prototype
-                  (make-object-prototype object slot-names)))
-             (funcall function *prototype-name* prototype)))))
+       do (funcall function slot-name (slot-value object slot-name))))
