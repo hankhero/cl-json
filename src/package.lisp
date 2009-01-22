@@ -5,45 +5,91 @@
 (defpackage :json
   (:use :common-lisp)
   (:export
-    #:*prototype-name*
-    #:*json-symbols-package*
-    #:*json-object-factory*
-    #:*json-object-factory-add-key-value*
-    #:*json-object-factory-return*
-    #:*json-array-type*
-    #:*json-make-big-number*
-    
-    #:decode-json
-    #:decode-json-strict
-    #:decode-json-from-string
-    #:with-list-decoder-semantics
-    #:with-clos-decoder-semantics
-
-    #:*use-strict-json-rules*
-    #:json-parse-error
-
-    #:encode-json
-    #:encode-json-to-string
-    #:encode-json-alist
-    #:encode-json-alist-to-string
-    #:encode-json-plist
-    #:encode-json-plist-to-string    
-
-    #:json-bind
-
-    #:prototype
-    )
+   ;; common.lisp
+   #:with-shadowed-custom-vars
+   #:bind-custom-vars
+   #:set-custom-vars
+   #:*use-strict-json-rules*
+   #:*json-symbols-package*
+   #:json-intern
+   #:*json-identifier-name-to-lisp*
+   #:*lisp-identifier-name-to-json*
+   ;; camel-case.lisp
+   #:camel-case-to-lisp
+   #:lisp-to-camel-case
+   ;; objects.lisp
+   #:with-local-class-registry
+   #:clear-class-registry
+   #:fluid-class
+   #:fluid-object
+   #:make-object
+   #:make-object-prototype
+   #:prototype
+   #:*prototype-name*
+   ;; decoder.lisp
+   #:decode-json
+   #:decode-json-strict
+   #:decode-json-from-string
+   #:json-syntax-error
+   #:no-char-for-code
+   #:*boolean-handler*
+   #:*integer-handler*
+   #:*real-handler*
+   #:*beginning-of-array-handler*
+   #:*array-element-handler*
+   #:*end-of-array-handler*
+   #:*beginning-of-string-handler*
+   #:*string-char-handler*
+   #:*end-of-string-handler*
+   #:*beginning-of-object-handler*
+   #:*object-key-handler*
+   #:*object-value-handler*
+   #:*end-of-object-handler*
+   #:*json-array-type*
+   #:*internal-decoder*
+   #:*array-scope-variables*
+   #:*object-scope-variables*
+   #:*string-scope-variables*
+   #:*aggregate-scope-variables*
+   #:current-decoder
+   #:custom-decoder
+   #:with-custom-decoder-level
+   #:set-decoder-simple-list-semantics
+   #:with-decoder-simple-list-semantics
+   #:set-decoder-simple-clos-semantics
+   #:with-decoder-simple-clos-semantics
+   ;; encoder.lisp
+   #:encode-json
+   #:encode-json-to-string
+   #:encode-json-alist
+   #:encode-json-alist-to-string
+   #:encode-json-plist
+   #:encode-json-plist-to-string
+   #:with-array
+   #:encode-array-element
+   #:stream-array-element-encoder
+   #:with-object
+   #:with-object-element
+   #:encode-object-element
+   #:stream-object-element-encoder
+   ;; utils.lisp
+   #:json-bind
+   )
+  #+(or mcl openmcl cmu sbcl clisp ecl scl lispworks allegro)
   (:import-from #+(or mcl openmcl) #:ccl
                 #+cmu #:clos-mop
                 #+sbcl #:sb-mop
-                #+(or clisp ecl lispworks) #:clos
+                #+(or clisp ecl scl lispworks) #:clos
                 #+allegro #:mop
-    #:slot-definition-name
     #:class-slots
+    #:class-direct-slots
     #:class-direct-superclasses
+    #:slot-definition-name
+    #:add-direct-subclass 
     #:remove-direct-subclass
-    )
-   )
+    #:validate-superclass
+    #:compute-class-precedence-list
+    ))
 
 (defpackage :json-rpc
   (:use :common-lisp :json)
