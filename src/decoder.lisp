@@ -213,6 +213,9 @@ element).")
     "Designator for a function of no arguments (called at encountering
 a closing bracket for an array).")
 
+(define-custom-var (:array-type *json-array-type*) 'vector
+  "The Lisp sequence type to which JSON arrays are to be coerced.")
+
 (define-custom-var (:beginning-of-object *beginning-of-object-handler*)
     (constantly t)
   "Designator for a function of no arguments (called at encountering
@@ -382,9 +385,6 @@ double quote, calling string handlers as it goes."
 
 ;;; The list semantics
 
-(defvar *json-array-type* 'vector
-  "The Lisp sequence type to which JSON arrays are to be coerced.")
-
 (defun parse-number (token)
   "Take a number token and convert it to a numeric value."
   ;; We can be reasonably sure that nothing but well-formed (both in
@@ -470,6 +470,7 @@ package *JSON-SYMBOLS-PACKAGE*."
    :beginning-of-array #'init-accumulator
    :array-element #'accumulator-add
    :end-of-array #'accumulator-get-sequence
+   :array-type 'list
    :beginning-of-object #'init-accumulator
    :object-key #'accumulator-add-key
    :object-value #'accumulator-add-value
@@ -583,6 +584,7 @@ FLUID-OBJECT is constructed whose slot names are interned in
    :beginning-of-array #'init-vector-accumulator
    :array-element #'vector-accumulator-add
    :end-of-array #'vector-accumulator-get-sequence
+   :array-type 'vector
    :beginning-of-object #'init-accumulator-and-prototype
    :object-key #'accumulator-add-key-or-set-prototype
    :object-value #'accumulator-add-value-or-set-prototype
