@@ -32,6 +32,9 @@
    #:decode-json-from-string
    #:json-syntax-error
    #:no-char-for-code
+   #:bignumber-string
+   #:rational-approximation
+   #:placeholder
    #:*boolean-handler*
    #:*integer-handler*
    #:*real-handler*

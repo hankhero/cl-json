@@ -389,8 +389,31 @@ double quote, calling string handlers as it goes."
   "Take a number token and convert it to a numeric value."
   ;; We can be reasonably sure that nothing but well-formed (both in
   ;; JSON and Lisp sense) number literals gets to this point.
-  (let ((*read-default-float-format* 'long-float))
-    (read-from-string token)))
+  (handler-case (read-from-string token)
+    (reader-error (err)
+      ;; Typically, this happens when the exponent is too large for
+      ;; the number to be represented as a float -- a concealed
+      ;; FLOATING-POINT-OVERFLOW.  At this point, the best thing is to
+      ;; parse the significand and exponent separately and combine them
+      ;; by numeric operations: either this causes the overflow error
+      ;; to be explicitly signaled, or else we might get some more or
+      ;; less non-nonsensical value.
+      (let ((marker (position #\e token :test #'char-equal)))
+        (if marker
+            (let ((significand (read-from-string (subseq token 0 marker)))
+                  (exponent (read-from-string (subseq token (1+ marker)))))
+              (restart-case (* (float significand) (expt 10 (float exponent)))
+                (bignumber-string (&optional (prefix "BIGNUMBER:"))
+                  :report "Return the number token prefixed as big number."
+                  (concatenate 'string prefix token))
+                (rational-approximation ()
+                  :report
+                    "Approximate the value by rationalizing the significand."
+                  (* (rationalize significand) (expt 10 exponent)))
+                (placeholder (value)
+                  :report "Return a user-supplied placeholder value."
+                  value)))
+            (error err))))))
 
 (defun json-boolean-to-lisp (token)
   "Take a symbol token and convert it to a boolean value."
