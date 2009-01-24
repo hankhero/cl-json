@@ -1,5 +1,5 @@
 ;;;; Copyright (c) 2006-2008 Henrik Hjelte
-;;;; Copyright (c) 2008 Hans Hübner (marked parts)
+;;;; Copyright (c) 2008 Hans HÃ¼bner (marked parts)
 ;;;; All rights reserved.
 ;;;; See the file LICENSE for terms of use and distribution.
 
@@ -44,7 +44,7 @@ and the result is written as string."
           (write-json-string s stream)))))
 
 
-;;; The code below is from Hans Hübner's YASON (with modifications).
+;;; The code below is from Hans HÃ¼bner's YASON (with modifications).
 
 (defvar *json-aggregate-first* t
   "T when the first element of a JSON object or array is encoded,
@@ -63,7 +63,7 @@ separator."
                           &body body)
   "Run BODY to encode a JSON aggregate type, delimited by BEGIN-CHAR
 and END-CHAR."
-  `(let ((*json-aggregate-first* *json-aggregate-first*))
+  `(let ((*json-aggregate-first* t))
      (declare (special *json-aggregate-first*))
      (write-char ,begin-char ,stream)
      (prog1 (progn ,@body)
@@ -224,14 +224,14 @@ characters in string S to STREAM."
   (loop for ch across s
      for code = (char-code ch)
      with special
-     if (> code #x1f)
-       do (let ((special (rassoc-if #'consp +json-lisp-escaped-chars+)))
-            (destructuring-bind (esc . (width . radix)) special
-              (format stream "\\~C~V,V,'0R" esc radix width code)))
-     else if (setq special (car (rassoc ch +json-lisp-escaped-chars+)))
+     if (setq special (car (rassoc ch +json-lisp-escaped-chars+)))
        do (write-char #\\ stream) (write-char special stream)
+     else if (< #x1f code #x7f)
+       do (write-char ch stream)
      else
-       do (write-char ch stream)))
+       do (let ((special '#.(rassoc-if #'consp +json-lisp-escaped-chars+)))
+            (destructuring-bind (esc . (width . radix)) special
+              (format stream "\\~C~V,V,'0R" esc radix width code)))))
 
 (defun write-json-number (nr stream)
   "Write the JSON representation of the number NR to STREAM."

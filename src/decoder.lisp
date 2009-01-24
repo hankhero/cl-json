@@ -151,7 +151,7 @@ return NIL."
       (#\\ (let ((c (read-char stream)))
              (let ((unescaped (cdr (assoc c +json-lisp-escaped-chars+))))
                (typecase unescaped
-                 (char unescaped)
+                 (character unescaped)
                  (cons
                   (destructuring-bind (len . rdx) unescaped
                     (let ((code

@@ -133,26 +133,26 @@ case.  This is an inverse of CAMEL-CASE-TO-LISP."
      with cc-string = (make-string l) and cc-i = 0
      with init = t and cap = nil and all-caps = nil
      while (< i l)
-     for c = (aref string i)
-     unless (case c
-              (#\* (if init (setq cap t)))
-              (#\+ (cond
-                     (all-caps (setq all-caps nil init t))
-                     (init (setq all-caps t))))
-              (#\- (progn
-                     (setq init t)
-                     (cond
-                       ((or all-caps
-                            (and (char= (aref string (1+ i)) #\-)
-                                 (incf i)))
-                        (setf (aref cc-string cc-i) #\_) 
-                        (incf cc-i))
-                       (t (setq cap t))))))
-       do (setf (aref cc-string cc-i)
-                (if (and (or cap all-caps) (alpha-char-p c))
-                    (char-upcase c)
-                    (char-downcase c)))
-          (incf cc-i)
-          (setq cap nil init nil)
-     do (incf i)
+     do (let ((c (aref string i)))
+          (unless (case c
+                    (#\* (if init (setq cap t)))
+                    (#\+ (cond
+                           (all-caps (setq all-caps nil init t))
+                           (init (setq all-caps t))))
+                    (#\- (progn
+                           (setq init t)
+                           (cond
+                             ((or all-caps
+                                  (and (char= (aref string (1+ i)) #\-)
+                                       (incf i)))
+                              (setf (aref cc-string cc-i) #\_)
+                              (incf cc-i))
+                             (t (setq cap t))))))
+            (setf (aref cc-string cc-i)
+                  (if (and (or cap all-caps) (alpha-char-p c))
+                      (char-upcase c)
+                      (char-downcase c)))
+            (incf cc-i)
+            (setq cap nil init nil))
+          (incf i))
      finally (return (subseq cc-string 0 cc-i))))

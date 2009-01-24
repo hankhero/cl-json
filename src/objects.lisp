@@ -109,8 +109,7 @@ the given SLOTS and SUPERCLASSES."
                 (class-direct-superclasses extant-class))
                (new-superclasses
                 (remove-if (lambda (class)
-                             (loop for super in extant-superclasses
-                                thereis (eql class super)))
+                             (find class extant-superclasses))
                            superclasses))
                (extant-slots
                 (mapcar #'slot-definition-name
@@ -130,7 +129,7 @@ the given SLOTS and SUPERCLASSES."
                    (mapcar #'slot-init (nconc extant-slots new-slots)))))
           extant-class)
         (make-instance 'fluid-class
-          :direct-superclasses superclasses
+          :direct-superclasses superclasses 
           :direct-slots
             (loop for slot in slots
                unless (some (extant-slot-p slot) superclasses)
@@ -154,7 +153,11 @@ has a member with exactly the same direct superclasses, it is updated
 to include all the given slots.  Otherwise, a new FLUID-CLASS is
 allocated and added to the *CLASS-REGISTRY*."
   (let* ((superclasses
-          (mapcar #'find-class* (or superclasses '(standard-object))))
+          (mapcar #'find-class*
+                  (if (find-if (lambda (c) (subtypep c 'fluid-object))
+                               superclasses)
+                      superclasses
+                      (append superclasses (list 'fluid-object)))))
          (extant-class-etc
           (member superclasses *class-registry*
                   :test #'equal :key #'class-direct-superclasses))
