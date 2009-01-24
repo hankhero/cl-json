@@ -5,14 +5,18 @@
 ;; Test decoder
 
 (defun make-json-array-type (&rest elements)
-  (map json::*json-array-type* #'identity elements))
+  (map json:*json-array-type* #'identity elements))
 
 (test json-literal
   (is-true (decode-json-from-string "  true"))
   (is-true (decode-json-from-string "  true "))
   (is-true (decode-json-from-string "true "))
   (is-true (decode-json-from-string "true"))
-  (is-false (decode-json-from-string "trUe "))
+;;; Invalidated by the patch ``Moved the customizable decoder
+;;; (special-vars flavour) over to the main branch.'' (Thu Dec 4
+;;; 22:02:02 MSK 2008).  This is indeed an error situation, not one
+;;; where a false value may be legally returned.
+;   (is-false (decode-json-from-string "trUe "))
   (is-false (decode-json-from-string "false"))
   (is-false (decode-json-from-string "null"))
   )
@@ -45,13 +49,7 @@ returned!"
   (:method ((object1 standard-object) (object2 standard-object))
     (let ((class1 (class-of object1))
           (class2 (class-of object2)))
-      (and (or (eql class1 class2)
-               (and (equal (class-name class1) (class-name class2))
-                    (not (set-exclusive-or
-                          (json::class-slots class1)
-                          (json::class-slots class2)
-                          :key #'json::slot-definition-name
-                          :test #'equal))))
+      (and (eql class1 class2)
            (loop for slot in (json::class-slots class1)
               for slot-name = (json::slot-definition-name slot)
               always (if (slot-boundp object1 slot-name)
@@ -66,21 +64,19 @@ returned!"
         (input " { \"hello\" : \"hej\" ,
                        \"hi\" : \"tjena\"
                      }"))
-    (with-list-decoder-semantics
+    (with-decoder-simple-list-semantics
       (is (equalp '((:hello . "hej") (:hi . "tjena"))
                   (decode-json-from-string input)))
       (is-false (decode-json-from-string " {  } "))
       (is-false (decode-json-from-string "{}")))
-    (with-clos-decoder-semantics
+    (with-decoder-simple-clos-semantics
       (is (equal-objects-p
            (json::make-object '((:hello . "hej") (:hi . "tjena")) nil)
            (decode-json-from-string input)))
       (is-false (class-name (class-of (decode-json-from-string input))))
       (is (equal-objects-p
            (decode-json-from-string "{ }")
-           (json::make-object nil nil)))
-      (is (eql (class-of (decode-json-from-string "{}"))
-               (find-class 'standard-object))))))
+           (json::make-object nil nil))))))
 
 (defclass foo () ((bar :initarg :bar) (baz :initarg :baz)))
 (defclass goo () ((quux :initarg :quux :initform 933)))
@@ -94,7 +90,7 @@ returned!"
                  \"xyzzy\": true,
                  \"quux\": 98,
                  \"prototype\": ~A}"))
-    (with-list-decoder-semantics
+    (with-decoder-simple-list-semantics
       (is (equalp
            (decode-json-from-string
             (format nil input "{\"lispPackage\":\"jsonTest\",
@@ -102,7 +98,7 @@ returned!"
            '((:bar . 46) (:xyzzy . t) (:quux . 98)
              (:prototype . ((:lisp-package . "jsonTest")
                             (:lisp-class . "frob")))))))
-    (with-clos-decoder-semantics
+    (with-decoder-simple-clos-semantics
       (is (equal-objects-p
            (make-instance 'frob :bar 46 :quux 98)
            (decode-json-from-string
@@ -140,42 +136,56 @@ returned!"
 
 
 (test json-object-factory
-  (let ((*json-object-factory* #'(lambda ()
-                                   (make-hash-table)))
-        (*json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                 (setf (gethash (intern (string-upcase key)) obj)
-                                                       value)
-                                                 obj))
-        (*json-object-factory-return* #'identity)
-        obj)
-    (setf obj (decode-json-from-string " { \"hello\" : \"hej\" ,
+  (let (*ht* *key* obj
+        (*json-symbols-package* 'json-test))
+    (declare (special *ht* *key*))
+    (json:bind-custom-vars
+        (:beginning-of-object #'(lambda () (setq *ht* (make-hash-table)))
+         :object-key #'(lambda (key)
+                         (setq *key* (json-intern (camel-case-to-lisp key))))
+         :object-value #'(lambda (value) (setf (gethash *key* *ht*) value))
+         :end-of-object #'(lambda () *ht*)
+         :object-scope-variables '(*ht* *key*))
+      (setf obj (decode-json-from-string " { \"hello\" : \"hej\" ,
                        \"hi\" : \"tjena\"
                      }"))
-    (is (string= "hej" (gethash 'hello obj)))
-    (is (string= "tjena" (gethash 'hi obj)))))
+      (is (string= "hej" (gethash 'hello obj)))
+      (is (string= "tjena" (gethash 'hi obj))))))
 
 (test set-list-decoder-semantics
-  (json::with-shadowed-json-variables
-    (let ((tricky-json "{\"startXPos\":98,\"startYPos\":4}")
+  (with-shadowed-custom-vars
+    (let ((tricky-json "{\"start_XPos\":98,\"start_YPos\":4}")
           (*json-symbols-package* (find-package :keyword)))
-      (json::set-list-decoder-semantics)
-      (is (equal '((:START-X*POS . 98) (:START-Y*POS . 4))
+      (set-decoder-simple-list-semantics)
+      (is (equal '((:START--*X-POS . 98) (:START--*Y-POS . 4))
                  (decode-json-from-string tricky-json))))))
 
 
 
 
 (test json-object-camel-case
-  (with-list-decoder-semantics
+  (with-decoder-simple-list-semantics
     (let ((*json-symbols-package* (find-package :keyword)))
       (is (equalp '((:hello-key . "hej")
-                    (:*hi-starts-with-upper-case . "tjena"))
+                    (:*hi-starts-with-upper-case . "tjena")
+                    (:+json+-all-capitals . "totae majusculae")
+                    (:+two-words+ . "duo verba")
+                    (:camel-case--*mixed--+4-parts+ . "partes miscella quatuor"))
                   (decode-json-from-string " { \"helloKey\" : \"hej\" ,
-                       \"HiStartsWithUpperCase\" : \"tjena\"
+                       \"HiStartsWithUpperCase\" : \"tjena\",
+                       \"JSONAllCapitals\": \"totae majusculae\",
+                       \"TWO_WORDS\": \"duo verba\",
+                       \"camelCase_Mixed_4_PARTS\": \"partes miscella quatuor\"
                      }"))))))
 
 
-
+(defmacro with-fp-overflow-handler (handler-expr &body body)
+  (let ((err (gensym)))
+    `(handler-bind ((floating-point-overflow
+                     (lambda (,err)
+                       (declare (ignore ,err))
+                       ,handler-expr)))
+       ,@body)))
 
 (test json-number
   (is (= (decode-json-from-string "100") 100))
@@ -186,7 +196,15 @@ returned!"
   (is (= (decode-json-from-string "3e4") 3e4))  
   #+sbcl
   (is (= (decode-json-from-string "2e40") 2d40));;Coerced to double
-  (is (equalp (decode-json-from-string "2e444") (funcall *json-make-big-number* "2e444"))))
+  (is (equalp (with-fp-overflow-handler
+                  (invoke-restart 'bignumber-string "BIG:")
+                (decode-json-from-string "2e444"))
+              "BIG:2e444"))
+  (is (= (with-fp-overflow-handler
+             (invoke-restart 'rational-approximation)
+           (decode-json-from-string "2e444"))
+         (* 2 (expt 10 444))))
+)
 
 (defparameter *json-test-files-path* *load-pathname*)
 
@@ -194,9 +212,9 @@ returned!"
   (make-pathname :name name :type "json" :defaults *json-test-files-path*))
 
 (defun decode-file (path)
-  (with-open-file (stream path
-                          :direction :input)
-    (decode-json-strict stream)))
+  (with-open-file (stream path :direction :input)
+    (with-fp-overflow-handler (invoke-restart 'placeholder :infty)
+      (decode-json-strict stream))))
 
 ;; All test files are taken from http://www.crockford.com/JSON/JSON_checker/test/
 
@@ -242,7 +260,9 @@ returned!"
     (format t "Decoding ~a varying chars from memory ~a times." chars count)
     (time
      (dotimes (x count) 
-       (let ((discard-soon (decode-json-from-string json-string)))
+       (let ((discard-soon
+              (with-fp-overflow-handler (invoke-restart 'placeholder :infty)
+                (decode-json-from-string json-string))))
          (funcall #'identity discard-soon))))));Do something so the compiler don't optimize too much
 
 ;;#+when-u-want-profiling
@@ -261,48 +281,48 @@ returned!"
 
 (test non-strict-json
    (let ((not-strictly-valid "\"right\\'s of man\""))
-     (5am:signals json:json-parse-error
+     (5am:signals json:json-syntax-error
        (json:decode-json-from-string not-strictly-valid))
      (let ((*use-strict-json-rules* nil))
        (declare (special *use-strict-json-rules*))
        (is (string= (json:decode-json-from-string not-strictly-valid)
                     "right's of man")))))
 
+(defun first-bound-slot-name (x)
+  (loop for slot in (json::class-slots (class-of x))
+     for slot-name = (json::slot-definition-name slot)
+     if (slot-boundp x slot-name)
+       return slot-name))
+
 (test test*json-symbols-package*
   (let ((*json-symbols-package* nil)
         x)
-    (with-list-decoder-semantics
+    (with-decoder-simple-list-semantics
       (setf x (decode-json-from-string "{\"x\":1}"))
       (is (equal (symbol-package (caar x))
                  (find-package :json-test))))
-    (with-clos-decoder-semantics
+    (with-decoder-simple-clos-semantics
       (setf x (decode-json-from-string "{\"x\":1}"))
-      (is (equal (symbol-package
-                  (json::slot-definition-name
-                   (first (json::class-slots (class-of x)))))
+      (is (equal (symbol-package (first-bound-slot-name x))
                  (find-package :json-test)))))
   (let ((*json-symbols-package* (find-package :cl-user))
         x)
-    (with-list-decoder-semantics
+    (with-decoder-simple-list-semantics
       (setf x (decode-json-from-string "{\"x\":1}"))
       (is (equal (symbol-package (caar x))
                  (find-package :cl-user))))
-    (with-clos-decoder-semantics
+    (with-decoder-simple-clos-semantics
       (setf x (decode-json-from-string "{\"x\":1}"))
-      (is (equal (symbol-package
-                  (json::slot-definition-name
-                   (first (json::class-slots (class-of x)))))
+      (is (equal (symbol-package (first-bound-slot-name x))
                  (find-package :cl-user)))))
   (when (eq *json-symbols-package* (find-package :keyword))
     (let (x)
-      (with-list-decoder-semantics
+      (with-decoder-simple-list-semantics
         (setf x (decode-json-from-string "{\"x\":1}"))
         (is (equal (symbol-package (caar x))
                    (find-package :keyword))))
-      (with-clos-decoder-semantics
+      (with-decoder-simple-clos-semantics
         (setf x (decode-json-from-string "{\"x\":1}"))
-        (is (equal (symbol-package
-                    (json::slot-definition-name
-                     (first (json::class-slots (class-of x)))))
+        (is (equal (symbol-package (first-bound-slot-name x))
                    (find-package :keyword)))))))
 

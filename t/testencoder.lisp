@@ -1,16 +1,18 @@
 (in-package :json-test)
 (in-suite json)
 
-(defmacro with-objects-as-hashtables(&body body)
+(defmacro with-objects-as-hashtables (&body body)
   ;;For testing, keys are stored as strings
-  `(let ((*json-object-factory* #'(lambda ()
-                                   (make-hash-table :test #'equalp )))
-        (*json-object-factory-add-key-value* #'(lambda (obj key value)
-                                                 (setf (gethash key obj)
-                                                       value)
-                                                 obj))
-        (*json-object-factory-return* #'identity))
-    ,@body))
+  (let ((ht (gensym)) (key (gensym)))
+    `(let (,ht ,key)
+       (declare (special ,ht ,key))
+       (json:bind-custom-vars
+           (:beginning-of-object #'(lambda () (setq ,ht (make-hash-table :test #'equalp)))
+            :object-key #'(lambda (key) (setq ,key key))
+            :object-value #'(lambda (value) (setf (gethash ,key ,ht) value))
+            :end-of-object #'(lambda () ,ht)
+            :object-scope-variables '(,ht ,key))
+         ,@body))))
 
 (test json-string()
    (is (string= (encode-json-to-string (format nil "hello~&hello"))
@@ -53,44 +55,42 @@
                      (normalize encoded)))))))
 
 (test test-encode-json-nathan-hawkins
-  (let ((foo '((a . 1) (b . 2) (c . 3)))
-        (*prototype-name* nil))
+  (let ((foo '((a . 1) (b . 2) (c . 3))))
     (is (string= (encode-json-to-string foo)
                  "{\"a\":1,\"b\":2,\"c\":3}"))))
 
 (test test-encode-json-alist
       (let ((alist `((:HELLO . 100)(:hi . 5)))
-            (expected "{\"hello\":100,\"hi\":5}")
-            (*prototype-name* nil))
+            (expected "{\"hello\":100,\"hi\":5}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
 
 (test test-encode-json-alist-two
   (let ((alist `((HELLO . 100)(hi . 5)))
-        (expected "{\"hello\":100,\"hi\":5}")
-        (*prototype-name* nil))
+        (expected "{\"hello\":100,\"hi\":5}"))
     (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                    expected))))
 
 (test test-encode-json-alist-string
-      (let ((*prototype-name* nil)
-            (alist `((:hello . "hej")(:hi . "tjena")))
+      (let ((alist `((:hello . "hej")(:hi . "tjena")))
             (expected "{\"hello\":\"hej\",\"hi\":\"tjena\"}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
 
 (test test-encode-json-alist-camel-case
       (let ((alist `((:hello-message . "hej")(*also-starting-with-upper . "hej")))
-            (expected "{\"helloMessage\":\"hej\",\"AlsoStartingWithUpper\":\"hej\"}")
-            (*prototype-name* nil))
+            (expected "{\"helloMessage\":\"hej\",\"AlsoStartingWithUpper\":\"hej\"}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
 
-(test test-encode-json-alist-with-prototype
-  (let ((alist `((hello . 100) (hi . 5)))
-        (expected "{\"hello\":100,\"hi\":5,\"prototype\":{\"lispClass\":\"cons\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}}")
-        (*prototype-name* 'prototype))
-    (is (string= (encode-json-to-string alist) expected))))
+;;; Invalidated by the patch ``Various modifications, mostly concerning
+;;; the encoder.'' (Wed Jan 21 18:34:49 MSK 2009)
+;
+; (test test-encode-json-alist-with-prototype
+;   (let ((alist `((hello . 100) (hi . 5)))
+;         (expected "{\"hello\":100,\"hi\":5,\"prototype\":{\"lispClass\":\"cons\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}}")
+;         (*prototype-name* 'prototype))
+;     (is (string= (encode-json-to-string alist) expected))))
 
 (test test-encode-json-plist
       (let ((plist '(:foo 1 :bar "blub"))
@@ -124,25 +124,29 @@
                :baz (make-instance 'frob
                       :bar 'xyzzy
                       :baz (make-instance 'standard-object))))
-        (expected "{\"bar\":{\"quux\":933,\"hello\":100,\"hi\":5},\"baz\":{\"quux\":933,\"bar\":\"xyzzy\",\"baz\":{}}}")
-        (*prototype-name* nil))
+        (expected "{\"bar\":{\"quux\":933,\"hello\":100,\"hi\":5},\"baz\":{\"quux\":933,\"bar\":\"xyzzy\",\"baz\":{}}}"))
     (is (string= (encode-json-to-string obj) expected))))
 
-(test test-encode-json-clos-with-prototype
-  (finalize-inheritance (find-class 'goo))
-  (let ((obj (make-instance 'foo
-               :bar (json::make-object '((hello . 100) (hi . 5)) nil
-                                       :superclasses '(goo))
-               :baz (make-instance 'frob :bar 'xyzzy :baz 'blub)))
-        (expected "{\"bar\":{\"quux\":933,\"hello\":100,\"hi\":5,\"prototype\":{\"lispClass\":null,\"lispSuperclasses\":[\"goo\"],\"lispPackage\":\"jsonTest\"}},\"baz\":{\"quux\":933,\"bar\":\"xyzzy\",\"baz\":\"blub\",\"prototype\":{\"lispClass\":\"frob\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}},\"prototype\":{\"lispClass\":\"foo\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}}")
-        (*prototype-name* 'prototype))
-    (is (string= (encode-json-to-string obj) expected))))
+;;; Invalidated by the patch ``Various modifications, mostly concerning
+;;; the encoder.'' (Wed Jan 21 18:34:49 MSK 2009)
+; 
+; (test test-encode-json-clos-with-prototype
+;   (finalize-inheritance (find-class 'goo))
+;   (let ((obj (make-instance 'foo
+;                :bar (json::make-object '((hello . 100) (hi . 5)) nil
+;                                        :superclasses '(goo))
+;                :baz (make-instance 'frob :bar 'xyzzy :baz 'blub)))
+;         (expected "{\"bar\":{\"quux\":933,\"hello\":100,\"hi\":5,\"prototype\":{\"lispClass\":null,\"lispSuperclasses\":[\"goo\"],\"lispPackage\":\"jsonTest\"}},\"baz\":{\"quux\":933,\"bar\":\"xyzzy\",\"baz\":\"blub\",\"prototype\":{\"lispClass\":\"frob\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}},\"prototype\":{\"lispClass\":\"foo\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}}")
+;         (*prototype-name* 'prototype))
+;     (is (string= (encode-json-to-string obj) expected))))
 
 #.(export 'json::emotional (find-package '#:json))
 (test test-encode-json-clos-max-package
-  (let ((obj (json::make-object '((rational . 100) (emotional . 5)) nil))
-        (expected "{\"rational\":100,\"emotional\":5,\"prototype\":{\"lispClass\":null,\"lispSuperclasses\":null,\"lispPackage\":\"json\"}}")
-        (*prototype-name* 'prototype))
+  (let ((obj (json:make-object
+              '((rational . 100) (emotional . 5)
+                (prototype . (json:make-object-prototype nil '(rational emotional prototype))))
+              nil))
+        (expected "{\"rational\":100,\"emotional\":5,\"prototype\":{\"lispClass\":null,\"lispSuperclasses\":null,\"lispPackage\":\"json\"}}"))
     (is (progn (with-output-to-string (s) (encode-json obj s)))   #+nil(string= 
                  expected))))
 
@@ -178,7 +182,7 @@
   (decode-then-encode "\"0123456789\""))
 
 (test special
-  (decode-then-encode "\"`1~!@#$%^&*()_+-={':[,]}|;.</>?\""))
+  (decode-then-encode "\"`1~!@#$%^&*()_+-={':[,]}|;.<>?\""))
 
 (test hex
   (decode-then-encode "\"\u0123\u4567\u89AB\uCDEF\uabcd\uef4A\""))
@@ -193,11 +197,11 @@
   (decode-then-encode "[null]"))
 
 (test array
-  (with-list-decoder-semantics
+  (with-decoder-simple-list-semantics
     ;;Since empty lists becomes nil in lisp, they are converted back to null
     (is (string= (encode-json-to-string (decode-json-from-string "[  ]"))
                  "null")))
-  (with-clos-decoder-semantics
+  (with-decoder-simple-clos-semantics
     ;;Since empty lists becomes #() in lisp, they are converted back to empty list
     (is (string= (encode-json-to-string (decode-json-from-string "[  ]"))
                  "[]")))
@@ -211,22 +215,23 @@
 
 
 (test hash-table-symbol
-  (let ((ht (make-hash-table))
-        (*prototype-name* nil))
+  (let ((ht (make-hash-table)))
     (setf (gethash 'symbols-are-now-converted-to-camel-case ht) 5)
     (is (string= (encode-json-to-string ht)
                  "{\"symbolsAreNowConvertedToCamelCase\":5}"))))
 
-(test hash-table-symbol-with-prototype
-  (let ((ht (make-hash-table))
-        (*prototype-name* 'prototype))
-    (setf (gethash 'five ht) 5)
-    (is (string= (encode-json-to-string ht)
-                 "{\"five\":5,\"prototype\":{\"lispClass\":\"hashTable\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}}"))))
+;;; Invalidated by the patch ``Various modifications, mostly concerning
+;;; the encoder.'' (Wed Jan 21 18:34:49 MSK 2009)
+;
+; (test hash-table-symbol-with-prototype
+;   (let ((ht (make-hash-table))
+;         (*prototype-name* 'prototype))
+;     (setf (gethash 'five ht) 5)
+;     (is (string= (encode-json-to-string ht)
+;                  "{\"five\":5,\"prototype\":{\"lispClass\":\"hashTable\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}}"))))
 
 (test hash-table-string
-  (let ((ht (make-hash-table :test #'equal))
-        (*prototype-name* nil))
+  (let ((ht (make-hash-table :test #'equal)))
     (setf (gethash "lower x" ht) 5)
     (is (string= (encode-json-to-string ht)
                  "{\"lower x\":5}"))))
@@ -248,10 +253,6 @@
 }
 ")
 
-
-
-
-
 (test encoder-performance
   (with-objects-as-hashtables      
     (let* ((json-string *encode-performace-test-string*)
@@ -265,4 +266,33 @@
            (funcall #'identity discard-soon)))))))
 
 
+(defpackage foo
+  (:use)
+  (:export #:bar #:baz #:quux))
 
+(defpackage greek
+  (:use)
+  (:export #:lorem #:ipsum #:dolor #:sit #:amet))
+
+(test streaming-encoder
+  (let* ((encoded
+          (with-output-to-string (out)
+            (with-object (out)
+              (with-input-from-string (in "foo greek")
+                (loop for pkgname = (read in nil) while pkgname
+                   do (with-object-element (pkgname out)
+                        (with-array (out)
+                          (do-symbols (sym (find-package pkgname))
+                            (encode-array-element sym out)))))))))
+         (package-alist
+          (with-decoder-simple-list-semantics
+            (let ((*json-symbols-package* 'json-test))
+              (decode-json-from-string encoded))))
+         (foo-symbols
+          (cdr (assoc 'foo package-alist)))
+         (greek-symbols
+          (cdr (assoc 'greek package-alist))))
+    (flet ((same-string-sets (a b)
+             (null (set-exclusive-or a b :test #'string-equal))))
+      (is (same-string-sets foo-symbols '("BAR" "BAZ" "QUUX")))
+      (is (same-string-sets greek-symbols '("LOREM" "IPSUM" "DOLOR" "SIT" "AMET"))))))
