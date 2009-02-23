@@ -24,13 +24,13 @@
                (:module :src
                 :components ((:file "package")
                              (:file "common" :depends-on ("package"))
+                             #+cl-json-clos
                              (:file "objects" :depends-on ("package"))
                              (:file "camel-case" :depends-on ("package"))
                              (:file "decoder" :depends-on ("common" #+cl-json-clos "objects" "camel-case"))
                              (:file "encoder" :depends-on ("common" #+cl-json-clos "objects" "camel-case"))
                              (:file "utils" :depends-on ("decoder" "encoder"))
-                             (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder")))))
-  :depends-on (:parenscript))
+                             (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder"))))))
 
 (defsystem :cl-json.test
   :depends-on (:cl-json :fiveam )

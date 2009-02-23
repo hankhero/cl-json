@@ -71,7 +71,11 @@ slash.")
 
 ;;; Symbols
 
-(defparameter *symbol-to-string-fn* #'js::symbol-to-js)
+(defparameter +json-lisp-symbol-tokens+
+  '(("true" . t)
+    ("null" . nil)
+    ("false" . nil))
+  "Mapping between JSON symbols and Lisp boolean values.")
 
 (defvar *json-symbols-package* (find-package 'keyword)
   "The package where JSON object keys etc. are interned.
