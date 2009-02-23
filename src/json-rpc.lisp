@@ -45,7 +45,7 @@ It has three properties:
         (append eo `((:error . ,error-object)))
         eo)))
 
-(defun invoke-rpc (json-string)
+(defun invoke-rpc (json-source)
   "A remote method is invoked by sending a request to a remote service. The request is a single object serialized using JSON.
 
 It has three properties:
@@ -53,7 +53,7 @@ It has three properties:
     * method - A String containing the name of the method to be invoked.
     * params - An Array of objects to pass as arguments to the method.
     * id - The request id. This can be of any type. It is used to match the response with the request that it is replying to. "
-  (json-bind (method params id) json-string
+  (json-bind (method params id) json-source
     (restart-case
         (let ((func (gethash method *json-rpc-functions*)))
           (if func

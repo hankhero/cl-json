@@ -122,7 +122,7 @@ some initial portion of it does not contain :UPPER parts."
 
 (defun camel-case-to-lisp (string)
   "Take a camel-case string and convert it into a string with
-Lisp-style hyphenation.  This is an inverse of LISP-TO-CAMEL-CASE."
+Lisp-style hyphenation."
   (apply #'concatenate 'string
          (camel-case-transform (camel-case-split string))))
 
@@ -143,7 +143,8 @@ case.  This is an inverse of CAMEL-CASE-TO-LISP."
                            (setq init t)
                            (cond
                              ((or all-caps
-                                  (and (char= (aref string (1+ i)) #\-)
+                                  (and (< (1+ i) l)
+                                       (char= (aref string (1+ i)) #\-)
                                        (incf i)))
                               (setf (aref cc-string cc-i) #\_)
                               (incf cc-i))

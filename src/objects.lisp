@@ -29,13 +29,15 @@ argument, and assert that the resulting class is a STANDARD-CLASS."
   (let ((class
          (if (typep class-designator 'class)
              class-designator
-             (find-class class-designator))))
+             (or (find-class class-designator nil)
+                 (error 'cell-error :name 'class-designator)))))
     (check-type class standard-class)
     class))
 
-(defclass fluid-class (standard-class) ()
-  (:documentation "A class to whose instances arbitrary new slots may
-be added on the fly."))
+(eval-when (:load-toplevel :compile-toplevel :execute)
+  (defclass fluid-class (standard-class) ()
+    (:documentation "A class to whose instances arbitrary new slots may
+be added on the fly.")))
 
 (defmethod add-direct-subclass ((superclass class)
                                 (subclass fluid-class))
@@ -56,8 +58,10 @@ registered in the superclass."
   "Any fluid class is also a standard class."
   t)
 
-(defclass fluid-object (standard-object) ()
-  (:documentation "Any instance of a fluid class."))
+(finalize-inheritance
+ (defclass fluid-object (standard-object) ()
+   (:documentation "Any instance of a fluid class.")
+   (:metaclass fluid-class)))
 
 (defmethod compute-class-precedence-list ((class fluid-class))
   "Objects of fluid classes are fluid objects."
@@ -73,6 +77,19 @@ registered in the superclass."
   "A missing slot in a fluid class is considered unbound."
   (declare (ignore class object name op new-value))
   nil)
+
+(defmethod slot-missing ((class fluid-class) (object fluid-object) name
+                         (op (eql 'slot-makunbound)) &optional new-value)
+  "A missing slot in a fluid class is considered unbound."
+  (declare (ignore class name op new-value))
+  object)
+
+(defmethod slot-missing ((class fluid-class) (object fluid-object) name
+                         (op (eql 'slot-value)) &optional new-value)
+  "On attempting to get the value of a missing slot, raise a
+slot-unbound error."
+  (declare (ignore op new-value))
+  (slot-unbound class object name))
 
 (defmethod slot-missing ((class fluid-class) (object fluid-object) name
                          (op (eql 'setf)) &optional new-value)
@@ -146,7 +163,15 @@ defined in the CLASS, the corresponding value is discarded."
          do (setf (slot-value object slot) value))
     object))
 
-(defmethod make-object (bindings (class (eql nil)) &key (superclasses nil))
+(defgeneric make-object (bindings class &optional superclasses)
+  (:documentation "If CLASS is not NIL, create an instance of that
+class.  Otherwise, create a fluid object whose class has the given
+SUPERCLASSES (null list by default).  In either case, populate the
+resulting object using BINDINGS (an alist of slot names and
+values)."))
+
+(defmethod make-object (bindings (class (eql nil))
+                        &optional (superclasses nil))
   "Create a FLUID-OBJECT with the slots given by BINDINGS and whose
 class has all the given SUPERCLASSES.  If the current *CLASS-REGISTRY*
 has a member with exactly the same direct superclasses, it is updated
@@ -171,35 +196,41 @@ allocated and added to the *CLASS-REGISTRY*."
         (push updated-class *class-registry*))
     (make-and-populate-instance updated-class bindings)))
 
-(defmethod make-object (bindings class &key &allow-other-keys)
+(defmethod make-object (bindings class &optional superclasses)
   "If the CLASS is explicitly specified, just create and populate an
-instance."
+instance, discarding any of the BINDINGS which do not correspond to
+the slots of that CLASS."
+  (declare (ignore superclasses))
   (let ((class (find-class* class)))
     (make-and-populate-instance class bindings)))
 
 (defmethod make-object (bindings (class (eql (find-class 'cons)))
-                        &key &allow-other-keys)
+                        &optional superclasses)
   "If the CLASS is given as 'CONS, return the BINDINGS as alist."
+  (declare (ignore superclasses))
   (copy-seq bindings))
 
 (defmethod make-object (bindings (class (eql (find-class 'list)))
-                        &key &allow-other-keys)
+                        &optional superclasses)
   "If the CLASS is given as 'LIST, return the BINDINGS as plist."
+  (declare (ignore superclasses))
   (loop for (key . value) in bindings
      collect key collect value))
 
 (defmethod make-object (bindings (class (eql (find-class 'hash-table)))
-                        &key &allow-other-keys)
+                        &optional superclasses)
   "If the CLASS is given as 'HASH-TABLE, return the BINDINGS as hash
 table."
+  (declare (ignore superclasses))
   (let ((table (make-hash-table)))
     (loop for (key . value) in bindings
       do (setf (gethash key table) value))
     table))
 
-(defmethod make-object (bindings (class symbol) &key &allow-other-keys)
+(defmethod make-object (bindings (class symbol) &optional superclasses)
   "If the CLASS is given as a symbol, find it and resort to the usual
 procedure."
+  (declare (ignore superclasses))
   (make-object bindings (find-class class)))
 
 (defun max-package (symbols &key ((:initial-value package)
@@ -252,6 +283,11 @@ be interned."))
      ,@(if (slot-boundp prototype 'lisp-package)
            `(:lisp-package ,(lisp-package prototype)))))
 
+(defgeneric make-object-prototype (object &optional slot-names)
+  (:documentation "Return a PROTOTYPE describing the OBJECT's class or
+superclasses, and the package into which the names of the class /
+superclasses and of the OBJECT's slots are to be interned."))
+
 (defmethod make-object-prototype (object &optional slot-names)
   "Return a PROTOTYPE describing the OBJECT's class or superclasses,
 and the package into which the names of the class / superclasses and
@@ -275,10 +311,12 @@ of the OBJECT's slots are to be interned."
 
 (defmethod make-object-prototype ((class-name symbol) &optional slot-names)
   "Return a PROTOTYPE of an object of the class named by CLASS-NAME."
-  (declare (ignore slot-names))
-  (make-instance 'prototype
-    :lisp-class class-name
-    :lisp-package (package-name* (symbol-package class-name))))
+  (let ((package
+         (max-package slot-names
+           :initial-value (symbol-package class-name))))
+    (make-instance 'prototype
+      :lisp-class class-name
+      :lisp-package (package-name* package))))
 
 (defmethod make-object-prototype ((object prototype) &optional slot-names)
   "Prototypes are not to be given their own prototypes, otherwise we
@@ -287,7 +325,7 @@ would proceed ad malinfinitum."
   nil)
 
 (defun maybe-add-prototype (object prototype)
-  "If the OBJECT has a slot to accept the prototype, do set it.
+  "If the OBJECT has a slot to accept the PROTOTYPE, do set it.
 Return OBJECT."
   (if (and prototype (slot-exists-p object *prototype-name*))
       (setf (slot-value object *prototype-name*) prototype))

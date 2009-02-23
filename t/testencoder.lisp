@@ -11,7 +11,7 @@
             :object-key #'(lambda (key) (setq ,key key))
             :object-value #'(lambda (value) (setf (gethash ,key ,ht) value))
             :end-of-object #'(lambda () ,ht)
-            :object-scope-variables '(,ht ,key))
+            :object-scope '(,ht ,key))
          ,@body))))
 
 (test json-string()
@@ -49,7 +49,7 @@
              (remove #\Newline (remove #\Space string))))
       (let* ((decoded (decode-json-from-string json))
              (encoded (encode-json-to-string decoded)))
-;;        (format t "Json:~a~&" json)
+;;        (format t "Decoded:~a~&" decoded)
 ;;        (format t "Encoded:~a" encoded)    
         (is (string= (normalize json)
                      (normalize encoded)))))))
@@ -64,7 +64,7 @@
             (expected "{\"hello\":100,\"hi\":5}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
-
+ 
 (test test-encode-json-alist-two
   (let ((alist `((HELLO . 100)(hi . 5)))
         (expected "{\"hello\":100,\"hi\":5}"))
@@ -104,23 +104,23 @@
   (decode-then-encode "[[[[[[[[[[[[[[[[[[[\"Not too deep\"]]]]]]]]]]]]]]]]]]]"))
 
 (test encode-pass-3
-  (let ((*prototype-name* nil))
-    (decode-then-encode "{
+  (decode-then-encode "{
     \"JSON Test Pattern pass3\": {
         \"The outermost value\": \"must be an object or array.\"
     }
 }
-")))
+"))
 
 (defclass foo () ((bar :initarg :bar) (baz :initarg :baz)))
 (defclass goo () ((quux :initarg :quux :initform 933)))
 (defclass frob (foo goo) ())
 
+#+cl-json-clos
 (test test-encode-json-clos
   (finalize-inheritance (find-class 'goo))
   (let ((obj (make-instance 'foo
-               :bar (json::make-object '((hello . 100) (hi . 5)) nil
-                                       :superclasses '(goo))
+               :bar (json::make-object '((hello . 100) (hi . 5))
+                                       nil '(goo))
                :baz (make-instance 'frob
                       :bar 'xyzzy
                       :baz (make-instance 'standard-object))))
@@ -133,21 +133,22 @@
 ; (test test-encode-json-clos-with-prototype
 ;   (finalize-inheritance (find-class 'goo))
 ;   (let ((obj (make-instance 'foo
-;                :bar (json::make-object '((hello . 100) (hi . 5)) nil
-;                                        :superclasses '(goo))
+;                :bar (json::make-object '((hello . 100) (hi . 5))
+;                                        nil '(goo))
 ;                :baz (make-instance 'frob :bar 'xyzzy :baz 'blub)))
 ;         (expected "{\"bar\":{\"quux\":933,\"hello\":100,\"hi\":5,\"prototype\":{\"lispClass\":null,\"lispSuperclasses\":[\"goo\"],\"lispPackage\":\"jsonTest\"}},\"baz\":{\"quux\":933,\"bar\":\"xyzzy\",\"baz\":\"blub\",\"prototype\":{\"lispClass\":\"frob\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}},\"prototype\":{\"lispClass\":\"foo\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}}")
 ;         (*prototype-name* 'prototype))
 ;     (is (string= (encode-json-to-string obj) expected))))
 
 #.(export 'json::emotional (find-package '#:json))
+#+cl-json-clos
 (test test-encode-json-clos-max-package
   (let ((obj (json:make-object
-              '((rational . 100) (emotional . 5)
-                (prototype . (json:make-object-prototype nil '(rational emotional prototype))))
+              `((rational . 100) (emotional . 5)
+                (prototype . ,(json:make-object-prototype nil '(rational emotional prototype))))
               nil))
         (expected "{\"rational\":100,\"emotional\":5,\"prototype\":{\"lispClass\":null,\"lispSuperclasses\":null,\"lispPackage\":\"json\"}}"))
-    (is (progn (with-output-to-string (s) (encode-json obj s)))   #+nil(string= 
+    (is (string= (with-output-to-string (s) (encode-json obj s))
                  expected))))
 
 ;; Test inspired by the file pass1. 
@@ -201,6 +202,7 @@
     ;;Since empty lists becomes nil in lisp, they are converted back to null
     (is (string= (encode-json-to-string (decode-json-from-string "[  ]"))
                  "null")))
+  #+cl-json-clos
   (with-decoder-simple-clos-semantics
     ;;Since empty lists becomes #() in lisp, they are converted back to empty list
     (is (string= (encode-json-to-string (decode-json-from-string "[  ]"))
@@ -265,33 +267,30 @@
          (let ((discard-soon (encode-json-to-string lisp-obj)))
            (funcall #'identity discard-soon)))))))
 
-
-(defpackage foo
-  (:use)
-  (:export #:bar #:baz #:quux))
-
-(defpackage greek
-  (:use)
-  (:export #:lorem #:ipsum #:dolor #:sit #:amet))
-
 (test streaming-encoder
+  (defpackage json-test-foo
+    (:use)
+    (:export #:bar #:baz #:quux))
+  (defpackage json-test-greek
+    (:use)
+    (:export #:lorem #:ipsum #:dolor #:sit #:amet))
   (let* ((encoded
           (with-output-to-string (out)
             (with-object (out)
-              (with-input-from-string (in "foo greek")
+              (with-input-from-string (in "json-test-foo json-test-greek")
                 (loop for pkgname = (read in nil) while pkgname
-                   do (with-object-element (pkgname out)
+                   do (as-object-member (pkgname out)
                         (with-array (out)
                           (do-symbols (sym (find-package pkgname))
-                            (encode-array-element sym out)))))))))
+                            (encode-array-member sym out)))))))))
          (package-alist
           (with-decoder-simple-list-semantics
             (let ((*json-symbols-package* 'json-test))
               (decode-json-from-string encoded))))
          (foo-symbols
-          (cdr (assoc 'foo package-alist)))
+          (cdr (assoc 'json-test-foo package-alist)))
          (greek-symbols
-          (cdr (assoc 'greek package-alist))))
+          (cdr (assoc 'json-test-greek package-alist))))
     (flet ((same-string-sets (a b)
              (null (set-exclusive-or a b :test #'string-equal))))
       (is (same-string-sets foo-symbols '("BAR" "BAZ" "QUUX")))

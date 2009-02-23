@@ -42,7 +42,7 @@ returned!"
   (is (equalp (make-json-array-type)
               (decode-json-from-string "[]"))))
 
-
+#+cl-json-clos
 (defgeneric equal-objects-p (object1 object2)
   (:method (object1 object2)
     (equalp object1 object2))
@@ -69,6 +69,7 @@ returned!"
                   (decode-json-from-string input)))
       (is-false (decode-json-from-string " {  } "))
       (is-false (decode-json-from-string "{}")))
+    #+cl-json-clos
     (with-decoder-simple-clos-semantics
       (is (equal-objects-p
            (json::make-object '((:hello . "hej") (:hi . "tjena")) nil)
@@ -83,6 +84,7 @@ returned!"
 (defclass frob (foo goo) ())
 (defclass p-frob (frob) ((prototype :reader prototype)))
 
+#+cl-json-clos
 (test json-object-with-prototype
   (let ((*json-symbols-package* (find-package :keyword))
         (*prototype-name* 'prototype)
@@ -108,7 +110,7 @@ returned!"
       (finalize-inheritance (find-class 'goo))
       (is (equal-objects-p
            (json::make-object '((bar . 46) (xyzzy . t) (quux . 98))
-                              nil :superclasses '(foo goo))
+                              nil '(foo goo))
            (decode-json-from-string
             (format nil input "{\"lispSuperclasses\": [\"foo\", \"goo\"],
                                 \"lispPackage\":\"jsonTest\"}"))))
@@ -145,7 +147,7 @@ returned!"
                          (setq *key* (json-intern (camel-case-to-lisp key))))
          :object-value #'(lambda (value) (setf (gethash *key* *ht*) value))
          :end-of-object #'(lambda () *ht*)
-         :object-scope-variables '(*ht* *key*))
+         :object-scope '(*ht* *key*))
       (setf obj (decode-json-from-string " { \"hello\" : \"hej\" ,
                        \"hi\" : \"tjena\"
                      }"))
@@ -194,17 +196,24 @@ returned!"
   (is (= (decode-json-from-string "-2.3e3") -2.3e3))          
   (is (= (decode-json-from-string "-3e4") -3e4))
   (is (= (decode-json-from-string "3e4") 3e4))  
-  #+sbcl
-  (is (= (decode-json-from-string "2e40") 2d40));;Coerced to double
+  (let ((*read-default-float-format* 'double-float))
+    (is (= (decode-json-from-string "2e40") 2d40)))
+  #-sbcl
   (is (equalp (with-fp-overflow-handler
                   (invoke-restart 'bignumber-string "BIG:")
                 (decode-json-from-string "2e444"))
               "BIG:2e444"))
+  #-sbcl
   (is (= (with-fp-overflow-handler
              (invoke-restart 'rational-approximation)
            (decode-json-from-string "2e444"))
          (* 2 (expt 10 444))))
-)
+  ;; In SBCL, constructing the float from parts by explicit operations
+  ;; yields #.SB-EXT:SINGLE-FLOAT-POSITIVE-INFINITY.
+  #+sbcl
+  (is (= (decode-json-from-string "2e444")
+         (* 2.0 (expt 10.0 444)))))
+
 
 (defparameter *json-test-files-path* *load-pathname*)
 
@@ -288,6 +297,7 @@ returned!"
        (is (string= (json:decode-json-from-string not-strictly-valid)
                     "right's of man")))))
 
+#+cl-json-clos
 (defun first-bound-slot-name (x)
   (loop for slot in (json::class-slots (class-of x))
      for slot-name = (json::slot-definition-name slot)
@@ -301,6 +311,7 @@ returned!"
       (setf x (decode-json-from-string "{\"x\":1}"))
       (is (equal (symbol-package (caar x))
                  (find-package :json-test))))
+    #+cl-json-clos
     (with-decoder-simple-clos-semantics
       (setf x (decode-json-from-string "{\"x\":1}"))
       (is (equal (symbol-package (first-bound-slot-name x))
@@ -311,6 +322,7 @@ returned!"
       (setf x (decode-json-from-string "{\"x\":1}"))
       (is (equal (symbol-package (caar x))
                  (find-package :cl-user))))
+    #+cl-json-clos
     (with-decoder-simple-clos-semantics
       (setf x (decode-json-from-string "{\"x\":1}"))
       (is (equal (symbol-package (first-bound-slot-name x))
@@ -321,6 +333,7 @@ returned!"
         (setf x (decode-json-from-string "{\"x\":1}"))
         (is (equal (symbol-package (caar x))
                    (find-package :keyword))))
+      #+cl-json-clos
       (with-decoder-simple-clos-semantics
         (setf x (decode-json-from-string "{\"x\":1}"))
         (is (equal (symbol-package (first-bound-slot-name x))

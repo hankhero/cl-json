@@ -21,84 +21,79 @@
      finally (return subkeys)))
 
 (defun json-bind-level-customizations (level-keys value-required
-                                       defaults trivials)
-  (if (endp level-keys)
-      (if value-required defaults trivials)
-      (loop for (key . subs) in (range-keys level-keys)
-         with subkeys and vars-to-bind
-         do (loop for sub in subs
-               initially (setq subkeys nil vars-to-bind nil)
-               if (consp sub) do (push sub subkeys)
-               else do (push sub vars-to-bind))
-         collect
-           `((string= key ,key)
-             (set-custom-vars
-              :internal-decoder
-                (custom-decoder
-                 ,@(json-bind-level-customizations
-                    subkeys vars-to-bind defaults trivials))
-              :object-value
-                (lambda (value)
-                  ,@(loop for var in vars-to-bind
-                       collect `(setq ,var value))
-                  ,(if value-required
-                       `(funcall ,(getf defaults :object-value) value)))))
-           into match-clauses
-         finally
-           (return
-             `(:object-key
-               (lambda (key)
-                 (let ((key (funcall *json-identifier-name-to-lisp* key)))
-                   (cond
-                     ,@match-clauses
-                     (t (set-custom-vars
-                         :internal-decoder
-                           (custom-decoder
-                            ,@(if value-required defaults trivials))
-                         :object-value
-                           ,(if value-required
-                                (getf defaults :object-value)
-                                (getf trivials :object-value))))))
-                 ,(if value-required
-                      `(funcall ,(getf defaults :object-key) key))))))))
+                                       decoder validator
+                                       key-handler value-handler pass)
+  (loop for (key . subs) in (range-keys level-keys)
+    with subkeys and vars-to-bind
+    do (loop for sub in subs
+          initially (setq subkeys nil vars-to-bind nil)
+          if (consp sub) do (push sub subkeys)
+          else do (push sub vars-to-bind))
+    collect
+      `((string= key ,key)
+        (set-custom-vars
+         :internal-decoder
+           ,(if (endp subkeys)
+                (if vars-to-bind decoder validator)
+                (cons 'custom-decoder
+                      (json-bind-level-customizations
+                       subkeys vars-to-bind decoder validator
+                       key-handler value-handler pass)))
+         :object-value
+           (lambda (value)
+             (declare (ignorable value))
+             ,@(loop for var in vars-to-bind collect `(setq ,var value))
+             ,(if value-required `(funcall ,value-handler value)))))
+      into match-clauses
+    finally
+      (return
+        `(:object-key
+          (lambda (key)
+            (let ((key (funcall *json-identifier-name-to-lisp* key)))
+              (cond
+                ,@match-clauses
+                (t ,(if value-required
+                        (list 'set-custom-vars
+                              :internal-decoder decoder
+                              :object-value value-handler)
+                        (list 'set-custom-vars
+                              :internal-decoder validator
+                              :object-value pass)))))
+            ,(if value-required
+                 `(funcall ,key-handler key)))))))
 
 (defmacro json-bind ((&rest vars) json-source &body body)
-  (let ((boo (gensym)) (ok (gensym)) (ov (gensym)) (eoo (gensym))
-        (boa (gensym)) (ae (gensym)) (eoa (gensym)) (bos (gensym))
-        (sc (gensym)) (eos (gensym)) (id (gensym)) (pass (gensym))
-        (jsrc (gensym)))
-    `(let (,@vars
-           (,boo *beginning-of-object-handler*) (,ok *object-key-handler*)
-           (,ov *object-value-handler*) (,eoo *end-of-object-handler*)
-           (,boa *beginning-of-array-handler*)
-           (,ae *array-element-handler*) (,eoa *end-of-array-handler*)
-           (,bos *beginning-of-string-handler*) (,sc *string-char-handler*)
-           (,eos *end-of-string-handler*) (,id *internal-decoder*)
-           (,pass (constantly t)) (,jsrc ,json-source))
-       (bind-custom-vars
-           (,@(json-bind-level-customizations
-               (loop for var in vars collect (cons var (symbol-name var)))
-               nil
-               (list :beginning-of-object boo :object-key ok
-                     :object-value ov :end-of-object eoo
-                     :beginning-of-array boa :array-element ae
-                     :end-of-array eoa :beginning-of-string bos
-                     :string-char sc :end-of-string eos
-                     :internal-decoder id)
-               (list :beginning-of-object pass :object-key pass
-                     :object-value pass :end-of-object pass
-                     :beginning-of-array pass :array-element pass
-                     :end-of-array pass :beginning-of-string pass
-                     :string-char pass :end-of-string pass
-                     :internal-decoder #'decode-json))
-            :structure-scope-variables
-              (union *structure-scope-variables*
-                     '(*object-key-handler* *object-value-handler*
-                       *internal-decoder*)))
-         (etypecase ,jsrc
-           (string (decode-json-from-string ,jsrc))
-           (stream (decode-json ,jsrc))))
-       ,@body)))
+  (let-gensyms (decoder validator value-handler key-handler pass)
+    (let ((vars-tmp (loop repeat (length vars) collect (gensym))))
+      `(let (,@vars-tmp (,pass (constantly t)))
+         (let ((,validator
+                (custom-decoder
+                 :beginning-of-object ,pass :object-key ,pass
+                 :object-value ,pass :end-of-object ,pass
+                 :beginning-of-array ,pass :array-element ,pass
+                 :end-of-array ,pass :beginning-of-string ,pass
+                 :string-char ,pass :end-of-string ,pass
+                 :internal-decoder 'decode-json))
+               (,decoder (current-decoder))
+               (,key-handler *object-key-handler*)
+               (,value-handler *object-value-handler*))
+           (declare (ignorable ,decoder ,key-handler ,value-handler))
+           ,(if (null vars)
+                `(decode-json-from-source ,json-source ,validator)
+                `(bind-custom-vars
+                     (,@(json-bind-level-customizations
+                         (loop for var in vars for var-tmp in vars-tmp
+                           collect (cons var-tmp (symbol-name var)))
+                         nil decoder validator
+                         key-handler value-handler pass)
+                      :structure-scope
+                        (union *structure-scope-variables*
+                               '(*object-key-handler*
+                                 *object-value-handler*
+                                 *internal-decoder*)))
+                   (decode-json-from-source ,json-source))))
+         (let ,(mapcar #'list vars vars-tmp)
+           ,@body)))))
 
 ;;; Old code:
 

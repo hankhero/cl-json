@@ -163,20 +163,20 @@ return NIL."
                                  (json-syntax-error stream esc-error-fmt
                                                     (format nil "\\~C" c)
                                                     repr))))))
-                      (if (< code char-code-limit)
-                          (code-char code)
-                          (restart-case
-                              (error 'no-char-for-code :code code)
-                            (substitute-char (char)
-                              :report "Substitute another char."
-                              :interactive
-                              (lambda ()
-                                (format *query-io* "Char: ")
-                                (list (read-char *query-io*)))
-                              char)
-                            (pass-code ()
-                              :report "Pass the code to char handler."
-                              c))))))
+                      (restart-case
+                          (or (and (< code char-code-limit)
+                                   (code-char code))
+                              (error 'no-char-for-code :code code))
+                        (substitute-char (char)
+                          :report "Substitute another char."
+                          :interactive
+                          (lambda ()
+                            (format *query-io* "Char: ")
+                            (list (read-char *query-io*)))
+                          char)
+                        (pass-code ()
+                          :report "Pass the code to char handler."
+                          code)))))
                  (t (if *use-strict-json-rules*
                         (json-syntax-error stream esc-error-fmt "\\" c)
                         c))))))
@@ -184,6 +184,9 @@ return NIL."
 
 
 ;;; The decoder base
+
+(defvar *json-input* (make-synonym-stream '*standard-input*)
+  "The default input stream for decoding operations.")
 
 (define-custom-var (:integer *integer-handler*) (constantly 0)
   "Designator for a function of 1 string argument (integer token).")
@@ -235,25 +238,25 @@ a closing brace for an object).")
   "Designator for a function of 1 stream argument called (instead of
 DECODE-JSON) to decode an element of an array or of an object.")
 
-(define-custom-var (:object-scope-variables *object-scope-variables*)
+(define-custom-var (:object-scope *object-scope-variables*)
     '(*internal-decoder*)
   "A list of symbols naming dynamic variables which should be re-bound
 in the scope of every JSON object.")
-(define-custom-var (:array-scope-variables *array-scope-variables*)
+(define-custom-var (:array-scope *array-scope-variables*)
     '(*internal-decoder*)
   "A list of symbols naming dynamic variables which should be re-bound
 in the scope of every JSON array.")
-(define-custom-var (:string-scope-variables *string-scope-variables*)
+(define-custom-var (:string-scope *string-scope-variables*)
     nil
   "A list of symbols naming dynamic variables which should be re-bound
 in the scope of every JSON string.")
-(define-custom-var (:aggregate-scope-variables *aggregate-scope-variables*)
+(define-custom-var (:aggregate-scope *aggregate-scope-variables*)
     nil
   "A list of symbols naming dynamic variables which should be re-bound
 in the scope of every JSON structured value (object, array or string).")
 
-(defun decode-json (&optional (stream *standard-input*))
-  "Read a JSON value from STREAM."
+(defun decode-json (&optional (stream *json-input*))
+  "Read a JSON value from STREAM and return the corresponding Lisp value."
   (multiple-value-bind (dispatch-token-type dispatch-token)
       (read-json-token stream)
     (ecase dispatch-token-type
@@ -272,16 +275,29 @@ in the scope of every JSON structured value (object, array or string).")
 (defmacro custom-decoder (&rest customizations)
   "Return a function which is like DECODE-JSON called in a dynamic
 environment with the given customizations."
-  `(lambda (&optional (stream *standard-input*))
+  `(lambda (&optional (stream *json-input*))
      (bind-custom-vars ,customizations
        (decode-json stream))))
 
 (defun decode-json-from-string (json-string)
-  "Read a JSON value from JSON-STRING."
+  "Read a JSON value from JSON-STRING and return the corresponding
+Lisp value."
   (with-input-from-string (stream json-string)
     (decode-json stream)))
 
-(defun decode-json-strict (&optional (stream *standard-input*))
+(defun decode-json-from-source (source &optional (decoder 'decode-json))
+  "Decode a JSON value from SOURCE using the value of DECODER (default
+DECODE-JSON) as decoder function.  If the SOURCE is a string, the
+input is from this string; if it is a pathname, the input is from the
+file that it names; otherwise, a stream is expected as SOURCE."
+  (etypecase source
+    (pathname
+     (with-open-file (s source) (funcall decoder s)))
+    (string
+     (with-input-from-string (s source) (funcall decoder s)))
+    (stream (funcall decoder source))))
+
+(defun decode-json-strict (&optional (stream *json-input*))
   "Same as DECODE-JSON, but allow only objects or arrays on the top
 level, no junk afterwards."
   (assert (member (peek-char t stream) '(#\{ #\[)))
@@ -330,7 +346,7 @@ calling array handlers as it goes."
 calling object handlers as it goes."
   (aggregate-scope-progv *object-scope-variables*
     (aggregate-scope-progv *aggregate-scope-variables*
-      (loop with key = nil
+      (loop with key = nil and expect-key = t
          for first-time-p = t then nil
          initially (funcall *beginning-of-object-handler*)
          do (multiple-value-bind (type token) (read-json-token stream)
@@ -341,14 +357,15 @@ calling object handlers as it goes."
                          (return-from decode-json-object
                            (funcall *end-of-object-handler*))))
                     (#\"
-                     (setq key (decode-json-string stream)))))
-              (if key
-                  (funcall *object-key-handler* key)
+                     (setq key (decode-json-string stream)
+                           expect-key nil))))
+              (if expect-key
                   (json-syntax-error
                    stream
                    "Expected a key string in object on JSON input ~
                     but found `~A'"
-                   token)))
+                   token)
+                  (funcall *object-key-handler* key)))
            (multiple-value-bind (type token) (read-json-token stream)
              (unless (and (eql type :punct) (char= token #\:))
                (json-syntax-error
@@ -363,8 +380,8 @@ calling object handlers as it goes."
                  (case token
                    (#\} (return-from decode-json-object
                           (funcall *end-of-object-handler*)))
-                   (#\, (setq key nil))))
-             (if key
+                   (#\, (setq key nil expect-key t))))
+             (if (not expect-key)
                  (json-syntax-error
                   stream
                   "Expected a `,' separator or `}' in object on JSON ~
@@ -398,18 +415,31 @@ double quote, calling string handlers as it goes."
       ;; by numeric operations: either this causes the overflow error
       ;; to be explicitly signaled, or else we might get some more or
       ;; less non-nonsensical value.
-      (let ((marker (position #\e token :test #'char-equal)))
-        (if marker
-            (let ((significand (read-from-string (subseq token 0 marker)))
-                  (exponent (read-from-string (subseq token (1+ marker)))))
-              (restart-case (* (float significand) (expt 10 (float exponent)))
+      (let ((f-marker (position #\. token :test #'char-equal))
+            (e-marker (position #\e token :test #'char-equal)))
+        (if (or e-marker f-marker)
+            (let* ((int-part
+                    (subseq token 0 (or f-marker e-marker)))
+                   (frac-part
+                    (if f-marker
+                        (subseq token (1+ f-marker) e-marker)
+                        "0")) 
+                   (significand
+                    (+ (read-from-string int-part)
+                       (* (read-from-string frac-part)
+                          (expt 10 (- (length frac-part))))))
+                   (exponent
+                    (if e-marker
+                        (read-from-string (subseq token (1+ e-marker)))
+                        0)))
+              (restart-case
+                  (* (float significand) (expt 10 (float exponent)))
                 (bignumber-string (&optional (prefix "BIGNUMBER:"))
                   :report "Return the number token prefixed as big number."
                   (concatenate 'string prefix token))
                 (rational-approximation ()
-                  :report
-                    "Approximate the value by rationalizing the significand."
-                  (* (rationalize significand) (expt 10 exponent)))
+                  :report "Approximate the value by rationalizing the significand."
+                  (* significand (expt 10 exponent)))
                 (placeholder (value)
                   :report "Return a user-supplied placeholder value."
                   value)))
@@ -501,8 +531,8 @@ package *JSON-SYMBOLS-PACKAGE*."
    :beginning-of-string #'init-vector-accumulator
    :string-char #'vector-accumulator-add
    :end-of-string #'vector-accumulator-get-string
-   :aggregate-scope-variables (union *aggregate-scope-variables*
-                                     '(*accumulator* *accumulator-last*))
+   :aggregate-scope (union *aggregate-scope-variables*
+                           '(*accumulator* *accumulator-last*))
    :internal-decoder #'decode-json))
 
 (defmacro with-decoder-simple-list-semantics (&body body)
@@ -514,6 +544,8 @@ is such as set by SET-DECODER-SIMPLE-LIST-SEMANTICS."
 
 
 ;;; The CLOS semantics
+
+#+cl-json-clos (progn
 
 (defvar *prototype-prototype*
   (make-instance 'prototype
@@ -553,7 +585,7 @@ which matches *PROTOTYPE-NAME*, set VALUE to be the prototype of the
 object.  Otherwise, do the same as ACCUMULATOR-ADD-VALUE."
   (if (eql *prototype* t)
       (progn
-        (assert (typep value 'prototype) (value)
+        (assert (typep value '(or prototype string)) (value)
           "Invalid prototype: ~S.  Want to substitute something else?"
           value)
         (setq *prototype* value)
@@ -568,25 +600,33 @@ the package wherein to intern slot names from the prototype.
 Otherwise, create a FLUID-OBJECT with slots interned in
 *JSON-SYMBOLS-PACKAGE*."
   (flet ((as-symbol (value)
-           (if (stringp value)
-               (json-intern (funcall *json-identifier-name-to-lisp* value))
-               value))
+           (etypecase value
+             (string (json-intern
+                      (funcall *json-identifier-name-to-lisp* value)))
+             (symbol value)))
          (intern-keys (bindings)
            (loop for (key . value) in bindings
               collect (cons (json-intern key) value))))
     (if (typep *prototype* 'prototype)
         (with-slots (lisp-class lisp-superclasses lisp-package)
             *prototype*
-          (let* ((*json-symbols-package*
-                  (or (find-package (as-symbol lisp-package))
+          (let* ((package-name (as-symbol lisp-package))
+                 (*json-symbols-package*
+                  (if package-name
+                      (or (find-package package-name)
+                          (error 'package-error :package package-name))
                       *json-symbols-package*))
                  (class (as-symbol lisp-class))
                  (superclasses (mapcar #'as-symbol lisp-superclasses)))
             (maybe-add-prototype
-             (make-object (intern-keys (cdr *accumulator*)) class
-                          :superclasses superclasses)
+             (make-object (intern-keys (cdr *accumulator*))
+                          class superclasses)
              *prototype*)))
-        (make-object (intern-keys (cdr *accumulator*)) nil))))
+        (let ((bindings (intern-keys (cdr *accumulator*)))
+              (class (if (stringp *prototype*) (as-symbol *prototype*))))
+          (if (and *prototype* (not class))
+              (push (cons *prototype-name* *prototype*) bindings))
+          (make-object bindings class)))))
 
 (defun set-decoder-simple-clos-semantics ()
   "Set the decoder semantics to the following:
@@ -615,10 +655,10 @@ FLUID-OBJECT is constructed whose slot names are interned in
    :beginning-of-string #'init-vector-accumulator
    :string-char #'vector-accumulator-add
    :end-of-string #'vector-accumulator-get-string
-   :aggregate-scope-variables (union *aggregate-scope-variables*
-                                     '(*accumulator* *accumulator-last*))
-   :object-scope-variables (union *object-scope-variables*
-                                  '(*prototype* *json-array-type*))
+   :aggregate-scope (union *aggregate-scope-variables*
+                           '(*accumulator* *accumulator-last*))
+   :object-scope (union *object-scope-variables*
+                        '(*prototype* *json-array-type*))
    :internal-decoder #'decode-json))
 
 (defmacro with-decoder-simple-clos-semantics (&body body)
@@ -628,6 +668,7 @@ is such as set by SET-DECODER-SIMPLE-CLOS-SEMANTICS."
      (set-decoder-simple-clos-semantics)
      ,@body))
 
+) ; #+cl-json-clos
 
 ;;; List semantics is the default.
 
@@ -651,7 +692,7 @@ decoder which restores these values in its extent."
           (loop-on-custom (key var)
              do (collect key var)))
       `(let ,exterior-bindings
-         (custom-decoder ,@customizations)))))     
+         (custom-decoder ,@customizations)))))
 
 (defmacro with-custom-decoder-level ((&rest customizations) &body body)
   "Execute BODY in a dynamic environment such that, when nested

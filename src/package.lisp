@@ -27,11 +27,15 @@
    #:prototype
    #:*prototype-name*
    ;; decoder.lisp
+   #:*json-input*
    #:decode-json
    #:decode-json-strict
    #:decode-json-from-string
+   #:decode-json-from-source
    #:json-syntax-error
    #:no-char-for-code
+   #:substitute-char
+   #:pass-code
    #:bignumber-string
    #:rational-approximation
    #:placeholder
@@ -62,6 +66,9 @@
    #:set-decoder-simple-clos-semantics
    #:with-decoder-simple-clos-semantics
    ;; encoder.lisp
+   #:*json-output*
+   #:unencodable-value-error
+   #:substitute-printed-representation
    #:encode-json
    #:encode-json-to-string
    #:encode-json-alist
@@ -69,16 +76,17 @@
    #:encode-json-plist
    #:encode-json-plist-to-string
    #:with-array
-   #:encode-array-element
-   #:stream-array-element-encoder
+   #:as-array-member
+   #:encode-array-member
+   #:stream-array-member-encoder
    #:with-object
-   #:with-object-element
-   #:encode-object-element
-   #:stream-object-element-encoder
+   #:as-object-member
+   #:encode-object-member
+   #:stream-object-member-encoder
    ;; utils.lisp
    #:json-bind
    )
-  #+(or mcl openmcl cmu sbcl clisp ecl scl lispworks allegro)
+  #+cl-json-clos
   (:import-from #+(or mcl openmcl) #:ccl
                 #+cmu #:clos-mop
                 #+sbcl #:sb-mop
@@ -91,7 +99,9 @@
     #:add-direct-subclass 
     #:remove-direct-subclass
     #:validate-superclass
+    #:class-precedence-list
     #:compute-class-precedence-list
+    #:finalize-inheritance
     ))
 
 (defpackage :json-rpc

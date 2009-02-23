@@ -4,6 +4,9 @@
 
 (in-package :json)
 
+(defmacro let-gensyms ((&rest names) &body body)
+  `(let ,(loop for name in names collect `(,name (gensym)))
+     ,@body))
 
 ;;; Custom variables
 
@@ -25,16 +28,16 @@
         `(loop for (,key ,value) on ,key-args by #'cddr
             for ,var = (custom-key-to-variable ,key)
             if ,var ,@clauses))
-      `(loop for (,key . ,var) on *custom-vars*
+      `(loop for (,var . ,key) in *custom-vars*
             ,@clauses)))
 
-(defmacro set-custom-vars (&rest key-args)
+(defmacro set-custom-vars (&rest customizations)
   `(setq
-    ,@(loop-on-custom (key var value) key-args
+    ,@(loop-on-custom (key var value) customizations
          append (list var value))))
 
-(defmacro bind-custom-vars ((&rest key-args) &body body)
-  `(let ,(loop-on-custom (key var value) key-args
+(defmacro bind-custom-vars ((&rest customizations) &body body)
+  `(let ,(loop-on-custom (key var value) customizations
             collect (list var value))
      ,@body))
 
@@ -71,8 +74,8 @@ slash.")
 (defparameter *symbol-to-string-fn* #'js::symbol-to-js)
 
 (defvar *json-symbols-package* (find-package 'keyword)
-  "The package where json-symbols are interned.
-Default KEYWORD, nil = current package.")
+  "The package where JSON object keys etc. are interned.
+Default KEYWORD, NIL = use current *PACKAGE*.")
 
 (defun json-intern (string)
   "Intern STRING in the current *JSON-SYMBOLS-PACKAGE*."
