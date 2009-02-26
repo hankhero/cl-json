@@ -30,12 +30,13 @@
       (write-string (with-output-to-string (temp)
                       (call-next-method s temp))
                     stream)
-    (type-error (e)
+    ((or type-error #+ccl simple-error) (e)
       (declare (ignore e))
       (encode-json-alist s stream))))
 
 (defmethod encode-json((s sequence) stream)
    (let ((first-element t))
+     (length s) ;; ISE: trips error in ccl which will fail silently above
      (write-char #\[ stream)    
      (map nil #'(lambda (element) 
                  (if first-element
