@@ -60,24 +60,26 @@ returned!"
                          (not (slot-boundp object2 slot-name))))))))
 
 (test json-object
-  (let ((*json-symbols-package* (find-package :keyword))
-        (input " { \"hello\" : \"hej\" ,
+  (let ((input " { \"hello\" : \"hej\" ,
                        \"hi\" : \"tjena\"
                      }"))
-    (with-decoder-simple-list-semantics
-      (is (equalp '((:hello . "hej") (:hi . "tjena"))
-                  (decode-json-from-string input)))
-      (is-false (decode-json-from-string " {  } "))
-      (is-false (decode-json-from-string "{}")))
+    (let ((*json-symbols-package* (find-package :keyword)))
+      (with-decoder-simple-list-semantics
+        (is (equalp '((:hello . "hej") (:hi . "tjena"))
+                    (decode-json-from-string input)))
+        (is-false (decode-json-from-string " {  } "))
+        (is-false (decode-json-from-string "{}"))))
     #+cl-json-clos
-    (with-decoder-simple-clos-semantics
-      (is (equal-objects-p
-           (json::make-object '((:hello . "hej") (:hi . "tjena")) nil)
-           (decode-json-from-string input)))
-      (is-false (class-name (class-of (decode-json-from-string input))))
-      (is (equal-objects-p
-           (decode-json-from-string "{ }")
-           (json::make-object nil nil))))))
+    (let ((*json-symbols-package* (find-package :json-test)))
+      (with-decoder-simple-clos-semantics
+        (is (equal-objects-p
+             (json:make-object '((hello . "hej") (hi . "tjena")) nil)
+             (decode-json-from-string input)))
+        (is-false (#-cmu identity #+cmu symbol-package
+                   (class-name (class-of (decode-json-from-string input)))))
+        (is (equal-objects-p
+             (decode-json-from-string "{ }")
+             (json:make-object nil nil)))))))
 
 (defclass foo () ((bar :initarg :bar) (baz :initarg :baz)))
 (defclass goo () ((quux :initarg :quux :initform 933)))
@@ -109,8 +111,8 @@ returned!"
       (finalize-inheritance (find-class 'foo))
       (finalize-inheritance (find-class 'goo))
       (is (equal-objects-p
-           (json::make-object '((bar . 46) (xyzzy . t) (quux . 98))
-                              nil '(foo goo))
+           (json:make-object '((bar . 46) (xyzzy . t) (quux . 98))
+                             nil '(foo goo))
            (decode-json-from-string
             (format nil input "{\"lispSuperclasses\": [\"foo\", \"goo\"],
                                 \"lispPackage\":\"jsonTest\"}"))))
@@ -189,6 +191,14 @@ returned!"
                        ,handler-expr)))
        ,@body)))
 
+(defmacro with-no-char-handler (handler-expr &body body)
+  (let ((err (gensym)))
+    `(handler-bind ((no-char-for-code
+                     (lambda (,err)
+                       (declare (ignore ,err))
+                       ,handler-expr)))
+       ,@body)))
+
 (test json-number
   (is (= (decode-json-from-string "100") 100))
   (is (= (decode-json-from-string "10.01") 10.01))
@@ -198,19 +208,19 @@ returned!"
   (is (= (decode-json-from-string "3e4") 3e4))  
   (let ((*read-default-float-format* 'double-float))
     (is (= (decode-json-from-string "2e40") 2d40)))
-  #-sbcl
+  #-(or sbcl cmu)
   (is (equalp (with-fp-overflow-handler
                   (invoke-restart 'bignumber-string "BIG:")
                 (decode-json-from-string "2e444"))
               "BIG:2e444"))
-  #-sbcl
+  #-(or sbcl cmu)
   (is (= (with-fp-overflow-handler
              (invoke-restart 'rational-approximation)
            (decode-json-from-string "2e444"))
          (* 2 (expt 10 444))))
   ;; In SBCL, constructing the float from parts by explicit operations
   ;; yields #.SB-EXT:SINGLE-FLOAT-POSITIVE-INFINITY.
-  #+sbcl
+  #+(or sbcl cmu)
   (is (= (decode-json-from-string "2e444")
          (* 2.0 (expt 10.0 444)))))
 
@@ -223,7 +233,8 @@ returned!"
 (defun decode-file (path)
   (with-open-file (stream path :direction :input)
     (with-fp-overflow-handler (invoke-restart 'placeholder :infty)
-      (decode-json-strict stream))))
+      (with-no-char-handler (invoke-restart 'substitute-char #\?)
+        (decode-json-strict stream)))))
 
 ;; All test files are taken from http://www.crockford.com/JSON/JSON_checker/test/
 
@@ -271,7 +282,8 @@ returned!"
      (dotimes (x count) 
        (let ((discard-soon
               (with-fp-overflow-handler (invoke-restart 'placeholder :infty)
-                (decode-json-from-string json-string))))
+                (with-no-char-handler (invoke-restart 'substitute-char #\?)
+                  (decode-json-from-string json-string)))))
          (funcall #'identity discard-soon))))));Do something so the compiler don't optimize too much
 
 ;;#+when-u-want-profiling
@@ -306,6 +318,7 @@ returned!"
 
 (test test*json-symbols-package*
   (let ((*json-symbols-package* nil)
+        (*package* (find-package :json-test))
         x)
     (with-decoder-simple-list-semantics
       (setf x (decode-json-from-string "{\"x\":1}"))
@@ -333,7 +346,8 @@ returned!"
         (setf x (decode-json-from-string "{\"x\":1}"))
         (is (equal (symbol-package (caar x))
                    (find-package :keyword))))
-      #+cl-json-clos
+      #+(and cl-json-clos
+             (not cmu))   ; CMUCL does not allow keywords as slot names
       (with-decoder-simple-clos-semantics
         (setf x (decode-json-from-string "{\"x\":1}"))
         (is (equal (symbol-package (first-bound-slot-name x))

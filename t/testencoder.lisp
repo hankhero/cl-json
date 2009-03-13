@@ -119,11 +119,11 @@
 (test test-encode-json-clos
   (finalize-inheritance (find-class 'goo))
   (let ((obj (make-instance 'foo
-               :bar (json::make-object '((hello . 100) (hi . 5))
-                                       nil '(goo))
+               :bar (json:make-object '((hello . 100) (hi . 5))
+                                      nil '(goo))
                :baz (make-instance 'frob
                       :bar 'xyzzy
-                      :baz (make-instance 'standard-object))))
+                      :baz (make-instance 'fluid-object))))
         (expected "{\"bar\":{\"quux\":933,\"hello\":100,\"hi\":5},\"baz\":{\"quux\":933,\"bar\":\"xyzzy\",\"baz\":{}}}"))
     (is (string= (encode-json-to-string obj) expected))))
 
@@ -133,8 +133,8 @@
 ; (test test-encode-json-clos-with-prototype
 ;   (finalize-inheritance (find-class 'goo))
 ;   (let ((obj (make-instance 'foo
-;                :bar (json::make-object '((hello . 100) (hi . 5))
-;                                        nil '(goo))
+;                :bar (json:make-object '((hello . 100) (hi . 5))
+;                                       nil '(goo))
 ;                :baz (make-instance 'frob :bar 'xyzzy :baz 'blub)))
 ;         (expected "{\"bar\":{\"quux\":933,\"hello\":100,\"hi\":5,\"prototype\":{\"lispClass\":null,\"lispSuperclasses\":[\"goo\"],\"lispPackage\":\"jsonTest\"}},\"baz\":{\"quux\":933,\"bar\":\"xyzzy\",\"baz\":\"blub\",\"prototype\":{\"lispClass\":\"frob\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}},\"prototype\":{\"lispClass\":\"foo\",\"lispSuperclasses\":null,\"lispPackage\":\"jsonTest\"}}")
 ;         (*prototype-name* 'prototype))

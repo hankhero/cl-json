@@ -146,6 +146,10 @@ the given SLOTS and SUPERCLASSES."
                    (mapcar #'slot-init (nconc extant-slots new-slots)))))
           extant-class)
         (make-instance 'fluid-class
+          ;; CMUCL's PCL implementation tries to perform (SETF
+          ;; KERNEL::FIND-CLASS) on dynamically created fluid classes
+          ;; which leads to an error if the class has a NIL name.
+          :name #-cmu nil #+cmu (gensym "FLUID")
           :direct-superclasses superclasses 
           :direct-slots
             (loop for slot in slots
@@ -158,6 +162,12 @@ values.  BINDINGS must be a list of pairs whose CARs are slot names
 and CDRs are the respective values.  If no slot of a given name is
 defined in the CLASS, the corresponding value is discarded."
   (let ((object (make-instance class)))
+    (if (typep class 'fluid-class)
+        (loop for slot in (class-direct-slots class)
+          for slot-name = (slot-definition-name slot)
+          if (and (slot-boundp object slot-name)
+                  (null (slot-value object slot-name)))
+            do (slot-makunbound object slot-name)))
     (loop for (slot . value) in bindings
        if (slot-exists-p object slot)
          do (setf (slot-value object slot) value))
@@ -222,7 +232,7 @@ the slots of that CLASS."
   "If the CLASS is given as 'HASH-TABLE, return the BINDINGS as hash
 table."
   (declare (ignore superclasses))
-  (let ((table (make-hash-table)))
+  (let ((table (make-hash-table :test #'equal)))
     (loop for (key . value) in bindings
       do (setf (gethash key table) value))
     table))

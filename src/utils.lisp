@@ -86,8 +86,8 @@
                            collect (cons var-tmp (symbol-name var)))
                          nil decoder validator
                          key-handler value-handler pass)
-                      :structure-scope
-                        (union *structure-scope-variables*
+                      :aggregate-scope
+                        (union *aggregate-scope-variables*
                                '(*object-key-handler*
                                  *object-value-handler*
                                  *internal-decoder*)))

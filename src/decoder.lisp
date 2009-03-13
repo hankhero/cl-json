@@ -407,14 +407,15 @@ double quote, calling string handlers as it goes."
   ;; We can be reasonably sure that nothing but well-formed (both in
   ;; JSON and Lisp sense) number literals gets to this point.
   (handler-case (read-from-string token)
-    (reader-error (err)
+    ((or reader-error #+ecl arithmetic-error) (err)
       ;; Typically, this happens when the exponent is too large for
-      ;; the number to be represented as a float -- a concealed
-      ;; FLOATING-POINT-OVERFLOW.  At this point, the best thing is to
-      ;; parse the significand and exponent separately and combine them
-      ;; by numeric operations: either this causes the overflow error
-      ;; to be explicitly signaled, or else we might get some more or
-      ;; less non-nonsensical value.
+      ;; the number to be represented as a float -- a concealed (or,
+      ;; exceptionally in ECL, manifest) FLOATING-POINT-OVERFLOW.  At
+      ;; this point, the best thing is to parse the significand and
+      ;; exponent separately and combine them by numeric operations:
+      ;; either this causes the overflow error to be explicitly
+      ;; signaled, or else we might get some more or less
+      ;; non-nonsensical value.
       (let ((f-marker (position #\. token :test #'char-equal))
             (e-marker (position #\e token :test #'char-equal)))
         (if (or e-marker f-marker)
@@ -585,9 +586,8 @@ which matches *PROTOTYPE-NAME*, set VALUE to be the prototype of the
 object.  Otherwise, do the same as ACCUMULATOR-ADD-VALUE."
   (if (eql *prototype* t)
       (progn
-        (assert (typep value '(or prototype string)) (value)
-          "Invalid prototype: ~S.  Want to substitute something else?"
-          value)
+        (check-type value (or prototype string)
+                    (format nil "Invalid prototype: ~S." value))
         (setq *prototype* value)
         *accumulator*)
       (accumulator-add-value value)))
