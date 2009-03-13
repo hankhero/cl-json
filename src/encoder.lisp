@@ -201,44 +201,31 @@ STREAM as an object member (key:value pair)."
 
 (defmethod encode-json ((s list) &optional (stream *json-output*))
   "Write the JSON representation of the list S to STREAM (or to
-*STANDARD-OUTPUT*).  If S is a proper alist, it is encoded as a JSON
-object, otherwise as a JSON array."
-  (handler-case 
-      (write-string (with-output-to-string (temp)
-                      (call-next-method s temp))
-                    stream)
-    (type-error (e)
-      (declare (ignore e))
-      (encode-json-alist s stream))))
+*JSON-OUTPUT*).  If S is not encodable as a JSON array, try to encode
+it as an object (per ENCODE-JSON-ALIST)."
+  (handler-bind ((unencodable-value-error
+                  (lambda (e)
+                    (with-accessors ((datum type-error-datum)) e
+                      (if (and (consp datum)
+                               (not (consp (cdr datum)))
+                               (ignore-errors (every #'consp s)))
+                          (return-from encode-json
+                            (encode-json-alist s stream))
+                          (error e)))))
+                 (type-error
+                  (lambda (e)
+                    (declare (ignore e))
+                    (unencodable-value-error s 'encode-json))))
+    (write-string (with-output-to-string (temp)
+                    (call-next-method s temp))
+                  stream)
+    nil))
 
-(defmethod encode-json((s sequence) stream)
-   (let ((first-element t))
-     (write-char #\[ stream)    
-     (map nil #'(lambda (element) 
-                 (if first-element
-                     (setf first-element nil)
-                     (write-char #\, stream))
-                 (encode-json element stream))
-         s)
-    (write-char #\] stream)))
-
-(defmacro write-json-object (generator-fn stream)
-  (let ((strm (gensym))
-        (first-element (gensym)))
-    `(let ((,first-element t)
-           (,strm ,stream))
-      (write-char #\{ ,strm)
-      (loop
-       (multiple-value-bind (more name value)
-           (,generator-fn)
-         (unless more (return))
-         (if ,first-element
-             (setf ,first-element nil)
-             (write-char #\, ,strm))
-         (encode-json name ,strm)
-         (write-char #\: ,strm)
-         (encode-json value ,strm)))
-      (write-char #\} ,strm))))
+(defmethod encode-json ((s sequence) &optional (stream *json-output*))
+  "Write the JSON representation of the sequence S (not an alist) to
+STREAM (or to *JSON-OUTPUT*)."
+  (with-array (stream)
+    (map nil (stream-array-member-encoder stream) s)))
 
 (defmethod encode-json ((h hash-table) &optional (stream *json-output*))
   "Write the JSON representation (object) of the hash table H to
