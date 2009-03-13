@@ -217,7 +217,8 @@ it as an object (per ENCODE-JSON-ALIST)."
                     (declare (ignore e))
                     (unencodable-value-error s 'encode-json))))
     (write-string (with-output-to-string (temp)
-                    (call-next-method s temp))
+                    (with-array (temp)
+                      (mapcar (stream-array-member-encoder temp) s)))
                   stream)
     nil))
 
