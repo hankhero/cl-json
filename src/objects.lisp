@@ -267,7 +267,7 @@ exists, return an unspecific value and issue a warning."
     (if (stringp name) (make-symbol name) name)))
 
 (defvar *prototype-name* 'prototype
-  "The name of the prototype field in a JSON object, and the name of a
+  "The key of the prototype field in a JSON Object, and the name of a
 slot in a Lisp object which accepts its prototype.")
 
 (defclass prototype ()
@@ -335,8 +335,8 @@ would proceed ad malinfinitum."
   nil)
 
 (defun maybe-add-prototype (object prototype)
-  "If the OBJECT has a slot to accept the PROTOTYPE, do set it.
-Return OBJECT."
+  "If the PROTOTYPE is not NIL, and the OBJECT has a slot to accept it,
+do set it.  Return OBJECT."
   (if (and prototype (slot-exists-p object *prototype-name*))
       (setf (slot-value object *prototype-name*) prototype))
   object)
@@ -344,6 +344,6 @@ Return OBJECT."
 (defun map-slots (function object)
   "Call FUNCTION on the name and value of every bound slot in OBJECT."
   (loop for slot in (class-slots (class-of object))
-     for slot-name = (slot-definition-name slot)
-     if (slot-boundp object slot-name)
-       do (funcall function slot-name (slot-value object slot-name))))
+    for slot-name = (slot-definition-name slot)
+    if (slot-boundp object slot-name)
+      do (funcall function slot-name (slot-value object slot-name))))

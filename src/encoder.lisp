@@ -72,14 +72,14 @@ the printed representation of the OBJECT."
   (write-json-string s stream))
 
 (defmethod encode-json ((c character) &optional (stream *json-output*))
-  "JSON does not define a character type, we encode characters as strings."
+  "JSON does not define a character type, we encode characters as Strings."
   (encode-json (string c) stream))
 
 (defmethod encode-json ((s symbol) &optional (stream *json-output*))
   "Write the JSON representation of the symbol S to STREAM (or to
 *JSON-OUTPUT*).  If S is boolean, a boolean literal is written.
 Otherwise, the name of S is passed to *LISP-IDENTIFIER-NAME-TO-JSON*
-and the result is written as string."
+and the result is written as String."
   (let ((mapped (car (rassoc s +json-lisp-symbol-tokens+))))
     (if mapped
         (progn (write-string mapped stream) nil)
@@ -94,12 +94,11 @@ and the result is written as string."
 the respective environments.")
 
 (defvar *json-aggregate-first* t
-  "T when the first member of a JSON object or array is encoded,
-afterward NIL.")
+  "T when the first member of a JSON Object or Array is encoded,
+afterwards NIL.")
 
 (defun next-aggregate-member (context stream)
-  "Between two members of an object or array, print a comma
-separator."
+  "Between two members of an Object or Array, print a comma separator."
   (if (not (eq context *json-aggregate-context*))
       (error "Member encoder used ~:[outside any~;in inappropriate~] ~
               aggregate environment"
@@ -122,23 +121,23 @@ and END-CHAR."
        (write-char ,end-char ,stream))))
 
 (defmacro with-array ((&optional (stream '*json-output*)) &body body)
-  "Open a JSON array, run BODY, then close the array.  Inside the BODY,
+  "Open a JSON Array, run BODY, then close the Array.  Inside the BODY,
 AS-ARRAY-MEMBER or ENCODE-ARRAY-MEMBER should be called to encode
-members of the array."
+Members of the Array."
   `(with-aggregate (array #\[ #\] ,stream) ,@body))
 
 (defmacro as-array-member ((&optional (stream '*json-output*))
                            &body body)
   "BODY should be a program which encodes exactly one JSON datum to
 STREAM.  AS-ARRAY-MEMBER ensures that the datum is properly formatted
-as an array member, i. e. separated by comma from any preceding or
-following member."
+as a Member of an Array, i. e. separated by comma from any preceding
+or following Member."
   `(progn
      (next-aggregate-member 'array ,stream)
      ,@body))
 
 (defun encode-array-member (object &optional (stream *json-output*))
-  "Encode OBJECT as the next member of the innermost JSON array opened
+  "Encode OBJECT as the next Member of the innermost JSON Array opened
 with WITH-ARRAY in the dynamic context.  OBJECT is encoded using the
 ENCODE-JSON generic function, so it must be of a type for which an
 ENCODE-JSON method is defined."
@@ -149,24 +148,24 @@ ENCODE-JSON method is defined."
 (defun stream-array-member-encoder (stream
                                     &optional (encoder #'encode-json))
   "Return a function which takes an argument and encodes it to STREAM
-as an array member.  The encoding function is taken from the value of
-ENCODER (default is #'ENCODE-JSON)."
+as a Member of an Array.  The encoding function is taken from the
+value of ENCODER (default is #'ENCODE-JSON)."
   (lambda (object)
     (as-array-member (stream)
       (funcall encoder object stream))))
 
 (defmacro with-object ((&optional (stream '*json-output*)) &body body)
-  "Open a JSON object, run BODY, then close the object.  Inside the BODY,
+  "Open a JSON Object, run BODY, then close the Object.  Inside the BODY,
 AS-OBJECT-MEMBER or ENCODE-OBJECT-MEMBER should be called to encode
-members of the object."
+Members of the Object."
   `(with-aggregate (object #\{ #\} ,stream) ,@body))
 
 (defmacro as-object-member ((key &optional (stream '*json-output*))
                              &body body)
   "BODY should be a program which writes exactly one JSON datum to
 STREAM.  AS-OBJECT-MEMBER ensures that the datum is properly formatted
-as an object member, i. e. preceded by the (encoded) KEY and colon,
-and separated by comma from any preceding or following member."
+as a Member of an Object, i. e. preceded by the (encoded) KEY and
+colon, and separated by comma from any preceding or following Member."
   `(progn
      (next-aggregate-member 'object ,stream)
      (let ((key (encode-json-to-string ,key)))
@@ -178,11 +177,11 @@ and separated by comma from any preceding or following member."
 
 (defun encode-object-member (key value
                              &optional (stream *json-output*))
-  "Encode KEY and VALUE as a member pair of the innermost JSON object
+  "Encode KEY and VALUE as a Member pair of the innermost JSON Object
 opened with WITH-OBJECT in the dynamic context.  KEY and VALUE are
 encoded using the ENCODE-JSON generic function, so they both must be
 of a type for which an ENCODE-JSON method is defined.  If KEY does not
-encode to a string, its JSON representation (as a string) is encoded
+encode to a String, its JSON representation (as a string) is encoded
 over again."
   (as-object-member (key stream)
     (encode-json value stream))
@@ -191,7 +190,7 @@ over again."
 (defun stream-object-member-encoder (stream
                                      &optional (encoder #'encode-json))
   "Return a function which takes two arguments and encodes them to
-STREAM as an object member (key:value pair)."
+STREAM as a Member of an Object (String : Value pair)."
   (lambda (key value)
     (as-object-member (key stream)
       (funcall encoder value stream))))
@@ -201,8 +200,8 @@ STREAM as an object member (key:value pair)."
 
 (defmethod encode-json ((s list) &optional (stream *json-output*))
   "Write the JSON representation of the list S to STREAM (or to
-*JSON-OUTPUT*).  If S is not encodable as a JSON array, try to encode
-it as an object (per ENCODE-JSON-ALIST)."
+*JSON-OUTPUT*).  If S is not encodable as a JSON Array, try to encode
+it as an Object (per ENCODE-JSON-ALIST)."
   (handler-bind ((unencodable-value-error
                   (lambda (e)
                     (with-accessors ((datum type-error-datum)) e
@@ -223,13 +222,13 @@ it as an object (per ENCODE-JSON-ALIST)."
     nil))
 
 (defmethod encode-json ((s sequence) &optional (stream *json-output*))
-  "Write the JSON representation of the sequence S (not an alist) to
-STREAM (or to *JSON-OUTPUT*)."
+  "Write the JSON representation (Array) of the sequence S (not an
+alist) to STREAM (or to *JSON-OUTPUT*)."
   (with-array (stream)
     (map nil (stream-array-member-encoder stream) s)))
 
 (defmethod encode-json ((h hash-table) &optional (stream *json-output*))
-  "Write the JSON representation (object) of the hash table H to
+  "Write the JSON representation (Object) of the hash table H to
 STREAM (or to *JSON-OUTPUT*)."
   (with-object (stream)
     (maphash (stream-object-member-encoder stream) h)))
@@ -237,13 +236,13 @@ STREAM (or to *JSON-OUTPUT*)."
 #+cl-json-clos
 (defmethod encode-json ((o standard-object)
                         &optional (stream *json-output*))
-  "Write the JSON representation (object) of the CLOS object O to
+  "Write the JSON representation (Object) of the CLOS object O to
 STREAM (or to *JSON-OUTPUT*)."
   (with-object (stream)
     (map-slots (stream-object-member-encoder stream) o)))
 
 (defun encode-json-alist (alist &optional (stream *json-output*))
-  "Write the JSON representation (object) of ALIST to STREAM (or to
+  "Write the JSON representation (Object) of ALIST to STREAM (or to
 *JSON-OUTPUT*).  Return NIL."
   (with-substitute-printed-representation-restart (alist stream)
     (write-string
@@ -265,12 +264,12 @@ STREAM (or to *JSON-OUTPUT*)."
     nil))
 
 (defun encode-json-alist-to-string (alist)
-  "Return the JSON representation (object) of ALIST as a string."
+  "Return the JSON representation (Object) of ALIST as a string."
   (with-output-to-string (stream)
     (encode-json-alist alist stream)))
 
 (defun encode-json-plist (plist &optional (stream *json-output*))
-  "Write the JSON representation (object) of PLIST to STREAM (or to
+  "Write the JSON representation (Object) of PLIST to STREAM (or to
 *JSON-OUTPUT*).  Return NIL."
   (with-substitute-printed-representation-restart (plist stream)
     (write-string
@@ -293,13 +292,12 @@ STREAM (or to *JSON-OUTPUT*)."
     nil))
 
 (defun encode-json-plist-to-string (plist)
-  "Return the JSON representation (object) of PLIST as a string."
+  "Return the JSON representation (Object) of PLIST as a string."
   (with-output-to-string (stream)
     (encode-json-plist plist stream)))
 
 (defun write-json-string (s stream)
-  "Write a JSON string representation of S (double-quote-delimited
-string) to STREAM."
+  "Write a JSON representation (String) of S to STREAM."
   (write-char #\" stream)
   (if (stringp s)
       (write-json-chars s stream)

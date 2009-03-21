@@ -43,7 +43,7 @@
    #:*integer-handler*
    #:*real-handler*
    #:*beginning-of-array-handler*
-   #:*array-element-handler*
+   #:*array-member-handler*
    #:*end-of-array-handler*
    #:*beginning-of-string-handler*
    #:*string-char-handler*

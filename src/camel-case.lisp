@@ -11,7 +11,7 @@ upper-case alphabetic chars; or b) of lower-case alphabetic chars with
 an optional initial upper-case; or c) of decimal digits; or d) of a
 single non-alphanumeric char.  The return value is a list of
 pairs (CATEGORY . PART) where CATEGORY is one of the keywords :UPPER,
-:UPPER-1, :LOWER, :MIXED, :NUMERIC, :MIXED, and PART is a substring of
+:UPPER-1, :LOWER, :NUMERIC, :MIXED, and PART is a substring of
 STRING."
   (let ((length (length string)))
     (macrolet ((shift-part (e new-cat &optional subst-cat)

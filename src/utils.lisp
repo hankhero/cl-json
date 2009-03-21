@@ -70,7 +70,7 @@
                 (custom-decoder
                  :beginning-of-object ,pass :object-key ,pass
                  :object-value ,pass :end-of-object ,pass
-                 :beginning-of-array ,pass :array-element ,pass
+                 :beginning-of-array ,pass :array-member ,pass
                  :end-of-array ,pass :beginning-of-string ,pass
                  :string-char ,pass :end-of-string ,pass
                  :internal-decoder 'decode-json))

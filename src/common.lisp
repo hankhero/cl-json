@@ -61,11 +61,11 @@
     (#\r . #\Return)
     (#\t . #\Tab)
     (#\u . (4 . 16)))
-  "Mapping between JSON string escape sequences and Lisp chars.")
+  "Mapping between JSON String escape sequences and Lisp chars.")
 
 (defvar *use-strict-json-rules* t
   "If non-nil, signal error on unrecognized escape sequences in JSON
-strings.  If nil, translate any such sequence to the char after
+Strings.  If nil, translate any such sequence to the char after
 slash.")
 
 
@@ -75,10 +75,10 @@ slash.")
   '(("true" . t)
     ("null" . nil)
     ("false" . nil))
-  "Mapping between JSON symbols and Lisp boolean values.")
+  "Mapping between JSON literal names and Lisp boolean values.")
 
 (defvar *json-symbols-package* (find-package 'keyword)
-  "The package where JSON object keys etc. are interned.
+  "The package where JSON Object keys etc. are interned.
 Default KEYWORD, NIL = use current *PACKAGE*.")
 
 (defun json-intern (string)
@@ -86,9 +86,9 @@ Default KEYWORD, NIL = use current *PACKAGE*.")
   (intern string (or *json-symbols-package* *package*)))
 
 (defvar *json-identifier-name-to-lisp* 'camel-case-to-lisp
-  "Designator of a function which maps string (name of a JSON object
-key) to string (name of a Lisp symbol).")
+  "Designator for a function which maps string (a JSON Object key) to
+string (name of a Lisp symbol).")
 
 (defvar *lisp-identifier-name-to-json* 'lisp-to-camel-case
-  "Designator of a function which maps string (name of a Lisp symbol)
-to string (e. g. name of a JSON object key).")
+  "Designator for a function which maps string (name of a Lisp symbol)
+to string (e. g. JSON Object key).")

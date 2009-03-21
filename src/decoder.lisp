@@ -29,9 +29,9 @@
          :format-arguments format-arguments))
 
 (defun read-json-token (stream)
-  "Read a JSON token (symbol, number or punctuation char) from the
-given STREAM, and return 2 values: the token category (a symbol) and
-the token itself, as a string or character."
+  "Read a JSON token (literal name, number or punctuation char) from
+the given STREAM, and return 2 values: the token category (a symbol)
+and the token itself, as a string or character."
   (let ((c (peek-char t stream)))
     (case c
       ((#\{ #\[ #\] #\} #\" #\: #\,)
@@ -39,7 +39,7 @@ the token itself, as a string or character."
       ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\-)
        (read-json-number-token stream))
       (t (if (alpha-char-p c)
-             (read-json-symbol-token stream)
+             (read-json-name-token stream)
              (json-syntax-error stream "Invalid char on JSON input: `~C'"
                                 c))))))
 
@@ -116,8 +116,8 @@ as a string."
         (unread-char c stream)
         (values type (concatenate 'string int frac exp))))))
 
-(defun read-json-symbol-token (stream)
-  "Read a JSON symbol token from the given STREAM, and return 2
+(defun read-json-name-token (stream)
+  "Read a JSON literal name token from the given STREAM, and return 2
 values: the token category (:BOOLEAN) and the token itself, as a
 string."
   (let ((symbol (make-array 8 :adjustable t :fill-pointer 0
@@ -129,7 +129,8 @@ string."
     (setq symbol (coerce symbol 'string))
     (if (assoc symbol +json-lisp-symbol-tokens+ :test #'equal)
         (values :boolean symbol)
-        (json-syntax-error stream "Invalid JSON symbol: ~A" symbol))))
+        (json-syntax-error stream "Invalid JSON literal name: ~A"
+                           symbol))))
 
 (define-condition no-char-for-code (error)
   ((offending-code :initarg :code :reader offending-code))
@@ -137,11 +138,12 @@ string."
              (format stream "No character corresponds to code #x~4,'0X."
                      (offending-code condition))))
   (:documentation
-   "Signalled when, in a JSON string, an escaped code point (\uXXXX)
-is encountered which is greater than the application's CHAR-CODE-LIMIT."))
+   "Signalled when, in a JSON String, an escaped code point (\uXXXX)
+is encountered which is greater than the application's CHAR-CODE-LIMIT
+or for which CODE-CHAR returns NIL."))
 
 (defun read-json-string-char (stream)
-  "Read a JSON string char (or escape sequence) from the STREAM and
+  "Read a JSON String char (or escape sequence) from the STREAM and
 return it.  If an end of string (unescaped quote) is encountered,
 return NIL."
   (let ((esc-error-fmt "Invalid JSON character escape sequence: ~A~A")
@@ -198,65 +200,65 @@ return NIL."
 (define-custom-var (:beginning-of-string *beginning-of-string-handler*)
     (constantly t)
   "Designator for a function of no arguments (called at encountering
-an opening quote for a string).")
+an opening quote for a String).")
 (define-custom-var (:string-char *string-char-handler*) (constantly t)
-  "Designator for a function of 1 character argument (string char).")
+  "Designator for a function of 1 character argument (String char).")
 (define-custom-var (:end-of-string *end-of-string-handler*) (constantly "")
   "Designator for a function of no arguments (called at encountering
-a closing quote for a string).")
+a closing quote for a String).")
 
 (define-custom-var (:beginning-of-array *beginning-of-array-handler*)
     (constantly t)
   "Designator for a function of no arguments (called at encountering
-an opening bracket for an array).")
-(define-custom-var (:array-element *array-element-handler*) (constantly t)
-    "Designator for a function of 1 arbitrary argument (decoded array
-element).")
+an opening bracket for an Array).")
+(define-custom-var (:array-member *array-member-handler*) (constantly t)
+    "Designator for a function of 1 arbitrary argument (decoded member
+of Array).")
 (define-custom-var (:end-of-array *end-of-array-handler*) (constantly nil)
     "Designator for a function of no arguments (called at encountering
-a closing bracket for an array).")
+a closing bracket for an Array).")
 
 (define-custom-var (:array-type *json-array-type*) 'vector
-  "The Lisp sequence type to which JSON arrays are to be coerced.")
+  "The Lisp sequence type to which JSON Arrays are to be coerced.")
 
 (define-custom-var (:beginning-of-object *beginning-of-object-handler*)
     (constantly t)
   "Designator for a function of no arguments (called at encountering
-an opening brace for an object).")
+an opening brace for an Object).")
 (define-custom-var (:object-key *object-key-handler*) (constantly t)
-  "Designator for a function of 1 string argument (decoded object
-key).")
+  "Designator for a function of 1 string argument (decoded member key
+of Object).")
 (define-custom-var (:object-value *object-value-handler*) (constantly t)
-  "Designator for a function of 1 arbitrary argument (decoded object
-element).")
+  "Designator for a function of 1 arbitrary argument (decoded member
+value of Object).")
 (define-custom-var (:end-of-object *end-of-object-handler*)
     (constantly nil)
   "Designator for a function of no arguments (called at encountering
-a closing brace for an object).")
+a closing brace for an Object).")
 
 (define-custom-var (:internal-decoder *internal-decoder*) 'decode-json
   "Designator for a function of 1 stream argument called (instead of
-DECODE-JSON) to decode an element of an array or of an object.")
+DECODE-JSON) to decode a member of an Array or of an Object.")
 
 (define-custom-var (:object-scope *object-scope-variables*)
     '(*internal-decoder*)
   "A list of symbols naming dynamic variables which should be re-bound
-in the scope of every JSON object.")
+in the scope of every JSON Object.")
 (define-custom-var (:array-scope *array-scope-variables*)
     '(*internal-decoder*)
   "A list of symbols naming dynamic variables which should be re-bound
-in the scope of every JSON array.")
+in the scope of every JSON Array.")
 (define-custom-var (:string-scope *string-scope-variables*)
     nil
   "A list of symbols naming dynamic variables which should be re-bound
-in the scope of every JSON string.")
+in the scope of every JSON String.")
 (define-custom-var (:aggregate-scope *aggregate-scope-variables*)
     nil
   "A list of symbols naming dynamic variables which should be re-bound
-in the scope of every JSON structured value (object, array or string).")
+in the scope of every JSON aggregate value (Object, Array or String).")
 
 (defun decode-json (&optional (stream *json-input*))
-  "Read a JSON value from STREAM and return the corresponding Lisp value."
+  "Read a JSON Value from STREAM and return the corresponding Lisp value."
   (multiple-value-bind (dispatch-token-type dispatch-token)
       (read-json-token stream)
     (ecase dispatch-token-type
@@ -274,20 +276,20 @@ in the scope of every JSON structured value (object, array or string).")
 
 (defmacro custom-decoder (&rest customizations)
   "Return a function which is like DECODE-JSON called in a dynamic
-environment with the given customizations."
+environment with the given CUSTOMIZATIONS."
   `(lambda (&optional (stream *json-input*))
      (bind-custom-vars ,customizations
        (decode-json stream))))
 
 (defun decode-json-from-string (json-string)
-  "Read a JSON value from JSON-STRING and return the corresponding
+  "Read a JSON Value from JSON-STRING and return the corresponding
 Lisp value."
   (with-input-from-string (stream json-string)
     (decode-json stream)))
 
 (defun decode-json-from-source (source &optional (decoder 'decode-json))
-  "Decode a JSON value from SOURCE using the value of DECODER (default
-DECODE-JSON) as decoder function.  If the SOURCE is a string, the
+  "Decode a JSON Value from SOURCE using the value of DECODER (default
+'DECODE-JSON) as decoder function.  If the SOURCE is a string, the
 input is from this string; if it is a pathname, the input is from the
 file that it names; otherwise, a stream is expected as SOURCE."
   (etypecase source
@@ -298,7 +300,7 @@ file that it names; otherwise, a stream is expected as SOURCE."
     (stream (funcall decoder source))))
 
 (defun decode-json-strict (&optional (stream *json-input*))
-  "Same as DECODE-JSON, but allow only objects or arrays on the top
+  "Same as DECODE-JSON, but allow only Objects or Arrays on the top
 level, no junk afterwards."
   (assert (member (peek-char t stream) '(#\{ #\[)))
   (let ((object (decode-json stream)))
@@ -313,7 +315,7 @@ result."
      ,@body))
 
 (defun decode-json-array (stream)
-  "Read comma-separated list of JSON values until a closing bracket,
+  "Read comma-separated sequence of JSON Values until a closing bracket,
 calling array handlers as it goes."
   (aggregate-scope-progv *array-scope-variables*
     (aggregate-scope-progv *aggregate-scope-variables*
@@ -324,7 +326,7 @@ calling array handlers as it goes."
               (read-json-token stream)
               (return-from decode-json-array
                 (funcall *end-of-array-handler*)))
-            (funcall *array-element-handler*
+            (funcall *array-member-handler*
                      (funcall *internal-decoder* stream))))
       (loop
          (multiple-value-bind (type token) (read-json-token stream)
@@ -336,14 +338,14 @@ calling array handlers as it goes."
            (if token
                (json-syntax-error
                 stream
-                "Token out of place in array on JSON input: `~A'"
+                "Token out of place in Array on JSON input: `~A'"
                 token)))
-         (funcall *array-element-handler*
+         (funcall *array-member-handler*
                   (funcall *internal-decoder* stream))))))
 
 (defun decode-json-object (stream)
-  "Read comma-separated list of JSON key:value pairs until a closing brace,
-calling object handlers as it goes."
+  "Read comma-separated sequence of JSON String:Value pairs until a
+closing brace, calling object handlers as it goes."
   (aggregate-scope-progv *object-scope-variables*
     (aggregate-scope-progv *aggregate-scope-variables*
       (loop with key = nil and expect-key = t
@@ -362,7 +364,7 @@ calling object handlers as it goes."
               (if expect-key
                   (json-syntax-error
                    stream
-                   "Expected a key string in object on JSON input ~
+                   "Expected a key String in Object on JSON input ~
                     but found `~A'"
                    token)
                   (funcall *object-key-handler* key)))
@@ -370,7 +372,7 @@ calling object handlers as it goes."
              (unless (and (eql type :punct) (char= token #\:))
                (json-syntax-error
                 stream
-                "Expected a `:' separator in object on JSON input ~
+                "Expected a `:' separator in Object on JSON input ~
                  but found `~A'"
                 token)))
            (funcall *object-value-handler*
@@ -384,12 +386,12 @@ calling object handlers as it goes."
              (if (not expect-key)
                  (json-syntax-error
                   stream
-                  "Expected a `,' separator or `}' in object on JSON ~
+                  "Expected a `,' separator or `}' in Object on JSON ~
                    input but found `~A'"
                   token)))))))
 
 (defun decode-json-string (stream)
-  "Read JSON string characters / escape sequences until a closing
+  "Read JSON String characters / escape sequences until a closing
 double quote, calling string handlers as it goes."
   (aggregate-scope-progv *string-scope-variables*
     (aggregate-scope-progv *aggregate-scope-variables*
@@ -400,12 +402,12 @@ double quote, calling string handlers as it goes."
          finally (return (funcall *end-of-string-handler*))))))
 
 
-;;; The list semantics
+;;; The default semantics
 
 (defun parse-number (token)
   "Take a number token and convert it to a numeric value."
   ;; We can be reasonably sure that nothing but well-formed (both in
-  ;; JSON and Lisp sense) number literals gets to this point.
+  ;; JSON and Lisp sense) number literals get to this point.
   (handler-case (read-from-string token)
     ((or reader-error #+ecl arithmetic-error) (err)
       ;; Typically, this happens when the exponent is too large for
@@ -439,7 +441,7 @@ double quote, calling string handlers as it goes."
                   :report "Return the number token prefixed as big number."
                   (concatenate 'string prefix token))
                 (rational-approximation ()
-                  :report "Approximate the value by rationalizing the significand."
+                  :report "Use rational instead of float."
                   (* significand (expt 10 exponent)))
                 (placeholder (value)
                   :report "Return a user-supplied placeholder value."
@@ -447,9 +449,9 @@ double quote, calling string handlers as it goes."
             (error err))))))
 
 (defun json-boolean-to-lisp (token)
-  "Take a symbol token and convert it to a boolean value."
+  "Take a literal name token and convert it to a boolean value."
   ;; We can be reasonably sure that nothing but well-formed boolean
-  ;; literals gets to this point.
+  ;; literals get to this point.
   (cdr (assoc token +json-lisp-symbol-tokens+ :test #'string=)))
 
 (defvar *accumulator* nil
@@ -511,8 +513,8 @@ string."
 
 (defun set-decoder-simple-list-semantics ()
   "Set the decoder semantics to the following:
-  * Strings and numbers are decoded naturally, reals becoming floats.
-  * The symbol true is decoded to T, false and null to NIL.
+  * Strings and Numbers are decoded naturally, reals becoming floats.
+  * The literal name true is decoded to T, false and null to NIL.
   * Arrays are decoded to sequences of the type *JSON-ARRAY-TYPE*.
   * Objects are decoded to alists.  Object keys are converted by the
 function *JSON-IDENTIFIER-NAME-TO-LISP* and then interned in the
@@ -522,7 +524,7 @@ package *JSON-SYMBOLS-PACKAGE*."
    :real #'parse-number
    :boolean #'json-boolean-to-lisp
    :beginning-of-array #'init-accumulator
-   :array-element #'accumulator-add
+   :array-member #'accumulator-add
    :end-of-array #'accumulator-get-sequence
    :array-type 'list
    :beginning-of-object #'init-accumulator
@@ -543,7 +545,6 @@ is such as set by SET-DECODER-SIMPLE-LIST-SEMANTICS."
      (set-decoder-simple-list-semantics)
      ,@body))
 
-
 ;;; The CLOS semantics
 
 #+cl-json-clos (progn
@@ -555,7 +556,7 @@ is such as set by SET-DECODER-SIMPLE-LIST-SEMANTICS."
   "The prototype for a prototype object.")
 
 (defvar *prototype* nil
-  "When NIL, the object being decoded does not (yet?) have a prototype.
+  "When NIL, the Object being decoded does not (yet?) have a prototype.
 When T, the decoder should get ready to decode a prototype field.
 Otherwise, the value should be a prototype for the object being decoded.")
 
@@ -568,8 +569,8 @@ Otherwise, the value should be a prototype for the object being decoded.")
       (setq *prototype* nil)))
 
 (defun accumulator-add-key-or-set-prototype (key)
-  "If KEY (in a JSON object being decoded) matches *PROTOTYPE-NAME*,
-prepare to decode the corresponding value as a PROTOTYPE object.
+  "If KEY (in a JSON Object being decoded) matches *PROTOTYPE-NAME*,
+prepare to decode the corresponding Value as a PROTOTYPE object.
 Otherwise, do the same as ACCUMULATOR-ADD-KEY."
   (let ((key (funcall *json-identifier-name-to-lisp* key)))
     (if (and (not *prototype*)
@@ -581,9 +582,9 @@ Otherwise, do the same as ACCUMULATOR-ADD-KEY."
     *accumulator*))
 
 (defun accumulator-add-value-or-set-prototype (value)
-  "If VALUE (in a JSON object being decoded) corresponds to a key
+  "If VALUE (in a JSON Object being decoded) corresponds to a key
 which matches *PROTOTYPE-NAME*, set VALUE to be the prototype of the
-object.  Otherwise, do the same as ACCUMULATOR-ADD-VALUE."
+Object.  Otherwise, do the same as ACCUMULATOR-ADD-VALUE."
   (if (eql *prototype* t)
       (progn
         (check-type value (or prototype string)
@@ -595,7 +596,7 @@ object.  Otherwise, do the same as ACCUMULATOR-ADD-VALUE."
 (defun accumulator-get-object ()
   "Return a CLOS object, using keys and values accumulated so far in
 the list accumulator as slot names and values, respectively.  If the
-JSON object had a prototype field infer the class of the object and
+JSON Object had a prototype field infer the class of the object and
 the package wherein to intern slot names from the prototype.
 Otherwise, create a FLUID-OBJECT with slots interned in
 *JSON-SYMBOLS-PACKAGE*."
@@ -630,11 +631,11 @@ Otherwise, create a FLUID-OBJECT with slots interned in
 
 (defun set-decoder-simple-clos-semantics ()
   "Set the decoder semantics to the following:
-  * Strings and numbers are decoded naturally, reals becoming floats.
-  * The symbol true is decoded to T, false and null to NIL.
+  * Strings and Numbers are decoded naturally, reals becoming floats.
+  * The literal name true is decoded to T, false and null to NIL.
   * Arrays are decoded to sequences of the type *JSON-ARRAY-TYPE*.
   * Objects are decoded to CLOS objects.  Object keys are converted by
-the function *JSON-IDENTIFIER-NAME-TO-LISP*.  If a JSON object has a
+the function *JSON-IDENTIFIER-NAME-TO-LISP*.  If a JSON Object has a
 field whose key matches *PROTOTYPE-NAME*, the class of the CLOS object
 and the package wherein to intern slot names are inferred from the
 corresponding value which must be a valid prototype.  Otherwise, a
@@ -645,7 +646,7 @@ FLUID-OBJECT is constructed whose slot names are interned in
    :real #'parse-number
    :boolean #'json-boolean-to-lisp
    :beginning-of-array #'init-vector-accumulator
-   :array-element #'vector-accumulator-add
+   :array-member #'vector-accumulator-add
    :end-of-array #'vector-accumulator-get-sequence
    :array-type 'vector
    :beginning-of-object #'init-accumulator-and-prototype
@@ -679,7 +680,7 @@ is such as set by SET-DECODER-SIMPLE-CLOS-SEMANTICS."
 
 (defmacro current-decoder (&rest keys)
   "Capture current values of custom variables and return a custom
-decoder which restores these values in its extent."
+decoder which restores these values in its dynamic environment."
   (let (exterior-bindings customizations)
     (flet ((collect (key var)
              (let ((exterior (gensym)))
@@ -697,8 +698,8 @@ decoder which restores these values in its extent."
 (defmacro with-custom-decoder-level ((&rest customizations) &body body)
   "Execute BODY in a dynamic environment such that, when nested
 structures are decoded, the outermost level is decoded with the given
-custom handlers (KEY-ARGS) whereas inner levels are decoded in the
-usual way."
+custom handlers (CUSTOMIZATIONS) whereas inner levels are decoded in
+the usual way."
   `(let ((current-decoder
           (current-decoder
            ,@(loop for (key value) on customizations by #'cddr
