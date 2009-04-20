@@ -65,72 +65,60 @@ such tokens is :SYMBOL)."
   "Read a JSON number token from the given STREAM, and return 2
 values: the token category (:INTEGER or :REAL) and the token itself,
 as a string."
-  (let ((int (make-array 32 :adjustable t :fill-pointer 0
-                         :element-type 'character))
-        (frac (make-array 32 :adjustable t :fill-pointer 0
-                          :element-type 'character))
-        (exp (make-array 32 :adjustable t :fill-pointer 0
-                         :element-type 'character))
-        (type :integer)
-        c)
-    (flet ((safe-read-char (stream)
-             (handler-case (read-char stream)
-               (end-of-file ()
-                 (return-from read-json-number-token
-                   (values type (concatenate 'string int frac exp)))))))
-      (macrolet
-          ((read-digits (part)
-             (let ((error-fmt
-                    (format nil "Invalid JSON number: no ~(~A~) digits"
-                            part)))
-               `(loop while (char<= #\0 c #\9)
-                   with count = 0
-                   do (vector-push-extend c ,part 32)
-                      (setq c (safe-read-char stream))
-                      (incf count)
-                   finally
-                     (if (zerop count)
-                         (json-syntax-error stream ,error-fmt))))))
-        (setq c (read-char stream))
-        (when (char= c #\-)
-          (vector-push c int)
-          (setq c (read-char stream)))
-        (if (char= c #\0)
-            (progn
-              (vector-push c int)
-              (setq c (safe-read-char stream)))
-            (read-digits int))
-        (when (char= c #\.)
-          (vector-push c frac)
-          (setq c (read-char stream)
-                type :real)
-          (read-digits frac))
-        (when (char-equal c #\e)
-          (vector-push c exp)
-          (setq c (read-char stream)
-                type :real)
-          (when (or (char= c #\+) (char= c #\-))
-            (vector-push c exp)
-            (setq c (read-char stream)))
-          (read-digits exp))
-        (unread-char c stream)
-        (values type (concatenate 'string int frac exp))))))
+  (let* ((chars (cons nil nil))
+         (chars-tail chars)
+         (category :integer)
+         (c (read-char stream nil)))
+    (flet ((next-char ()
+             (setf chars-tail (setf (cdr chars-tail) (cons c nil))
+                   c (read-char stream nil))))
+      (macrolet ((read-part (name divider &rest sign)
+                   `(loop for part-length upfrom 0
+                       initially
+                         ,@(if divider
+                               `((if (and c (char-equal c ,divider))
+                                     (next-char)
+                                     (return))))
+                         ,@(if sign
+                               (let ((sign
+                                      `(or ,@(loop for s in sign
+                                                collect `(char= c ,s)))))
+                                 `((if (and c ,sign) (next-char)))))
+                         ,@(if (eq name 'int)
+                               `((when (and c (char= c #\0))
+                                   (next-char)
+                                   (return))))
+                       while (and c (char<= #\0 c #\9))
+                       do (next-char)
+                       finally
+                         ,(let ((error-fmt
+                                 (format nil
+                                   "Invalid JSON number: no ~:(~A~) digits"
+                                   name)))
+                               `(if (zerop part-length)
+                                    (json-syntax-error stream ,error-fmt)))
+                         ,@(unless (eq name 'int)
+                             `((setq category :real))))))
+        (read-part Int nil #\-)
+        (read-part Frac #\.)
+        (read-part Exp #\e #\- #\+)
+        (if c (unread-char c stream))
+        (values category (coerce (cdr chars) 'string))))))
 
 (defun read-json-name-token (stream)
   "Read a JSON literal name token from the given STREAM, and return 2
 values: the token category (:BOOLEAN) and the token itself, as a
 string."
-  (let ((symbol (make-array 8 :adjustable t :fill-pointer 0
-                            :element-type 'character)))
-    (loop for c = (read-char stream nil)
-       while (and c (alpha-char-p c))
-       do (vector-push-extend c symbol 32)
-       finally (if c (unread-char c stream)))
-    (setq symbol (coerce symbol 'string))
-    (if (assoc symbol +json-lisp-symbol-tokens+ :test #'equal)
-        (values :boolean symbol)
+  (let ((name
+         (loop for c = (read-char stream nil)
+            while (and c (alpha-char-p c))
+            collect c into chars
+            finally (if c (unread-char c stream))
+              (return (coerce chars 'string)))))
+    (if (assoc name +json-lisp-symbol-tokens+ :test #'equal)
+        (values :boolean name)
         (json-syntax-error stream "Invalid JSON literal name: ~A"
-                           symbol))))
+                           name))))
 
 (define-condition no-char-for-code (error)
   ((offending-code :initarg :code :reader offending-code))
@@ -486,10 +474,17 @@ double quote, calling string handlers as it goes."
 *JSON-ARRAY-TYPE*."
   (coerce (cdr *accumulator*) *json-array-type*))
 
+(defun accumulator-get-string ()
+  "Return all values accumulated so far in the list accumulator as
+*JSON-ARRAY-TYPE*."
+  (coerce (cdr *accumulator*) 'string))
+
 (defun accumulator-get ()
   "Return all values accumulated so far in the list accumulator as a
 list."
   (cdr *accumulator*))
+
+#| Invalidated.
 
 (defun init-vector-accumulator ()
   "Initialize a vector accumulator."
@@ -511,6 +506,8 @@ list."
 string."
   (coerce *accumulator* 'string))
 
+|#
+
 (defun set-decoder-simple-list-semantics ()
   "Set the decoder semantics to the following:
   * Strings and Numbers are decoded naturally, reals becoming floats.
@@ -531,9 +528,9 @@ package *JSON-SYMBOLS-PACKAGE*."
    :object-key #'accumulator-add-key
    :object-value #'accumulator-add-value
    :end-of-object #'accumulator-get
-   :beginning-of-string #'init-vector-accumulator
-   :string-char #'vector-accumulator-add
-   :end-of-string #'vector-accumulator-get-string
+   :beginning-of-string #'init-accumulator
+   :string-char #'accumulator-add
+   :end-of-string #'accumulator-get-string
    :aggregate-scope (union *aggregate-scope-variables*
                            '(*accumulator* *accumulator-last*))
    :internal-decoder #'decode-json))
@@ -645,17 +642,17 @@ FLUID-OBJECT is constructed whose slot names are interned in
    :integer #'parse-number
    :real #'parse-number
    :boolean #'json-boolean-to-lisp
-   :beginning-of-array #'init-vector-accumulator
-   :array-member #'vector-accumulator-add
-   :end-of-array #'vector-accumulator-get-sequence
+   :beginning-of-array #'init-accumulator
+   :array-member #'accumulator-add
+   :end-of-array #'accumulator-get-sequence
    :array-type 'vector
    :beginning-of-object #'init-accumulator-and-prototype
    :object-key #'accumulator-add-key-or-set-prototype
    :object-value #'accumulator-add-value-or-set-prototype
    :end-of-object #'accumulator-get-object
-   :beginning-of-string #'init-vector-accumulator
-   :string-char #'vector-accumulator-add
-   :end-of-string #'vector-accumulator-get-string
+   :beginning-of-string #'init-accumulator
+   :string-char #'accumulator-add
+   :end-of-string #'accumulator-get-string
    :aggregate-scope (union *aggregate-scope-variables*
                            '(*accumulator* *accumulator-last*))
    :object-scope (union *object-scope-variables*
