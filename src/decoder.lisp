@@ -130,6 +130,19 @@ string."
 is encountered which is greater than the application's CHAR-CODE-LIMIT
 or for which CODE-CHAR returns NIL."))
 
+(defmacro escaped-char-dispatch (char &key code-handler default-handler)
+  "Compiles the escaped character alist to a (CASE ...) match expression."
+  `(case ,char
+     ,@(loop for (c . unescaped) in +json-lisp-escaped-chars+
+          if (characterp unescaped)
+            collect (list c unescaped)
+          else if (consp unescaped)
+            collect
+              (destructuring-bind ((len rdx) &body body) code-handler
+                (destructuring-bind (len-v . rdx-v) unescaped
+                  `(,c (let ((,len ,len-v) (,rdx ,rdx-v)) ,@body)))))
+     (t ,default-handler)))
+
 (defun read-json-string-char (stream)
   "Read a JSON String char (or escape sequence) from the STREAM and
 return it.  If an end of string (unescaped quote) is encountered,
@@ -139,37 +152,35 @@ return NIL."
     (case c
       (#\" nil)                         ; End of string
       (#\\ (let ((c (read-char stream)))
-             (let ((unescaped (cdr (assoc c +json-lisp-escaped-chars+))))
-               (typecase unescaped
-                 (character unescaped)
-                 (cons
-                  (destructuring-bind (len . rdx) unescaped
-                    (let ((code
-                           (let ((repr (make-string len)))
-                             (dotimes (i len)
-                               (setf (aref repr i) (read-char stream)))
-                             (handler-case (parse-integer repr :radix rdx)
-                               (parse-error ()
-                                 (json-syntax-error stream esc-error-fmt
-                                                    (format nil "\\~C" c)
-                                                    repr))))))
-                      (restart-case
-                          (or (and (< code char-code-limit)
-                                   (code-char code))
-                              (error 'no-char-for-code :code code))
-                        (substitute-char (char)
-                          :report "Substitute another char."
-                          :interactive
-                          (lambda ()
-                            (format *query-io* "Char: ")
-                            (list (read-char *query-io*)))
-                          char)
-                        (pass-code ()
-                          :report "Pass the code to char handler."
-                          code)))))
-                 (t (if *use-strict-json-rules*
-                        (json-syntax-error stream esc-error-fmt "\\" c)
-                        c))))))
+             (escaped-char-dispatch c
+               :code-handler
+                 ((len rdx)
+                  (let ((code
+                         (let ((repr (make-string len)))
+                           (dotimes (i len)
+                             (setf (aref repr i) (read-char stream)))
+                           (handler-case (parse-integer repr :radix rdx)
+                             (parse-error ()
+                               (json-syntax-error stream esc-error-fmt
+                                                  (format nil "\\~C" c)
+                                                  repr))))))
+                    (restart-case
+                        (or (and (< code char-code-limit) (code-char code))
+                            (error 'no-char-for-code :code code))
+                      (substitute-char (char)
+                        :report "Substitute another char."
+                        :interactive
+                        (lambda ()
+                          (format *query-io* "Char: ")
+                          (list (read-char *query-io*)))
+                        char)
+                      (pass-code ()
+                        :report "Pass the code to char handler."
+                        code))))
+                 :default-handler
+                   (if *use-strict-json-rules*
+                       (json-syntax-error stream esc-error-fmt "\\" c)
+                       c))))
       (t c))))
 
 
@@ -484,29 +495,20 @@ double quote, calling string handlers as it goes."
 list."
   (cdr *accumulator*))
 
-#| Invalidated.
+(defun init-string-stream-accumulator ()
+  "Initialize a string-stream accumulator."
+  (setq *accumulator* (make-string-output-stream)))
 
-(defun init-vector-accumulator ()
-  "Initialize a vector accumulator."
-  (setq *accumulator*
-        (make-array 32 :adjustable t :fill-pointer 0)))
-
-(defun vector-accumulator-add (element)
-  "Add ELEMENT to the end of the vector accumulator."
-  (vector-push-extend element *accumulator* (fill-pointer *accumulator*))
+(defun string-stream-accumulator-add (char)
+  "Add CHAR to the end of the string-stream accumulator."
+  (write-char char *accumulator*)
   *accumulator*)
 
-(defun vector-accumulator-get-sequence ()
-  "Return all values accumulated so far in a vector accumulator as
-*JSON-ARRAY-TYPE*."
-  (coerce *accumulator* *json-array-type*))
-
-(defun vector-accumulator-get-string ()
-  "Return all values accumulated so far in a vector accumulator as a
-string."
-  (coerce *accumulator* 'string))
-
-|#
+(defun string-stream-accumulator-get ()
+  "Return all characters accumulated so far in a string-stream
+accumulator and close the stream."
+  (prog1 (get-output-stream-string *accumulator*)
+    (close *accumulator*)))
 
 (defun set-decoder-simple-list-semantics ()
   "Set the decoder semantics to the following:
@@ -528,9 +530,9 @@ package *JSON-SYMBOLS-PACKAGE*."
    :object-key #'accumulator-add-key
    :object-value #'accumulator-add-value
    :end-of-object #'accumulator-get
-   :beginning-of-string #'init-accumulator
-   :string-char #'accumulator-add
-   :end-of-string #'accumulator-get-string
+   :beginning-of-string #'init-string-stream-accumulator
+   :string-char #'string-stream-accumulator-add
+   :end-of-string #'string-stream-accumulator-get
    :aggregate-scope (union *aggregate-scope-variables*
                            '(*accumulator* *accumulator-last*))
    :internal-decoder #'decode-json))
@@ -650,9 +652,9 @@ FLUID-OBJECT is constructed whose slot names are interned in
    :object-key #'accumulator-add-key-or-set-prototype
    :object-value #'accumulator-add-value-or-set-prototype
    :end-of-object #'accumulator-get-object
-   :beginning-of-string #'init-accumulator
-   :string-char #'accumulator-add
-   :end-of-string #'accumulator-get-string
+   :beginning-of-string #'init-string-stream-accumulator
+   :string-char #'string-stream-accumulator-add
+   :end-of-string #'string-stream-accumulator-get
    :aggregate-scope (union *aggregate-scope-variables*
                            '(*accumulator* *accumulator-last*))
    :object-scope (union *object-scope-variables*
