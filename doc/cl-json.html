@@ -68,6 +68,7 @@
    .example .output { margin-bottom:.25em; margin-top:0;
                       font-family:monospace; font-size:smaller; color:#810 }
 
+   .example .cont { position:absolute; right:10%; color:#108 }
    .example .comment { position:absolute; left:50%; color:#888 }
 
    .rationale { font-size:smaller }
@@ -105,7 +106,8 @@
       <ol class="toc-sections">
         <li><a href="#DEFAULT-OPERATION">The default encoder / decoder</a></li>
         <li><a href="#CLOS-DECODER">The CLOS decoder</a>
-          <ul><li><a href="#PROPERTIES-OF-FLUID-OBJECTS">Properties of fluid objects</a></li></ul></li>
+          <ul><li><a href="#PROPERTIES-OF-FLUID-OBJECTS">Properties of fluid objects</a></li></ul>
+          <ul><li><a href="#SECURITY-CONSIDERATIONS">Security considerations</a></li></ul></li>
         <li><a href="#DECODER-CUSTOMIZATION">Customizing the decoder</a></li>
         <li><a href="#STREAMING-API">Customizing the encoder</a></li>
         <li><a href="#CAMEL-CASE-TRANSLATION">Camel case translation</a></li>
@@ -692,9 +694,61 @@ Reset the <span class='other-name'>*class-registry*</span> to <span class='other
 </code>
   </p>
 <p class='docstring'>
-Run <span class='other-name'>body</span> in a dynamic environment where <span class='other-name'>*class-registry*</span> is a temporary local list.  If <span class='other-name'>:inherit</span> is non-null, the local registry shall initially have the same content as the exterior <span class='other-name'>*class-registry*</span>, otherwise it shall be <span class='other-name'>nil</span>.
+Run <span class='arg-name'>body</span> in a dynamic environment where <span class='other-name'>*class-registry*</span> is a temporary local list.  If <span class='arg-name'>:inherit</span> is non-null, the local registry shall initially have the same content as the exterior <span class='other-name'>*class-registry*</span>, otherwise it shall be <span class='other-name'>nil</span>.
 </p>
 </div>
+
+  <h4 class="section"><a name="SECURITY-CONSIDERATIONS"></a> Security considerations </h4>
+
+<p><code class="api-name">Make-object</code> also allows to implement security restrictions in an environment where uncontrolled class instantiation may have undesirable side effects.  Ordinarily, nothing prevents the CLOS decoder from processing an incoming datum like</p>
+
+<pre class="example">{"prototype": {"lispPackage": "worldDestruction",
+               "lispClass": "tickingBomb"},
+ "timeout": 10,
+ "setOffImmediatelyOnInstantiation": true}</pre>
+
+<p>If a careless and/or malevolent remote party manages to sneak in such a request the calamitous results will not be late in coming.  However, as the decoding of every input <code class="json">Object</code> eventually involves a call to <code class="api-name">make-object</code>, a safeguard may take the form simply of a  method of that generic function:</p>
+
+<div class="example">
+<pre class="in-code">
+(define-condition json-security-violation (error)
+  ((bindings :reader json-security-violation-bindings :initarg :bindings)
+   (class :reader json-security-violation-class :initarg :class))
+  (:report
+   (lambda (sv stream)
+     (with-slots (bindings class) sv
+       (format stream "Incoming JSON Object ~S in the class ~S ~
+                       violates security restrictions."
+               (json:encode-json-to-string bindings)
+               class)))))
+</pre>
+<pre class="value">JSON-SECURITY-VIOLATION</pre>
+
+<pre class="in-code">
+(defmethod json:make-object :before
+    (bindings (class (eql world-destruction:ticking-bomb))
+     &amp;optional superclasses)
+  (error 'json-security-violation :bindings bindings :class class))
+</pre>
+<pre class="value">#&lt;STANDARD-METHOD JSON:MAKE-OBJECT <span class="cont">&hellip;</span>
+        :BEFORE (T (EQL WORLD-DESTRUCTION:TICKING-BOMB))&gt;</pre>
+
+<pre class="in-code">
+(json:with-decoder-simple-clos-semantics 
+  (json:decode-json-from-string
+    "{\"prototype\": {\"lispPackage\": \"worldDestruction\",
+                      \"lispClass\": \"tickingBomb\"},
+      \"timeout\": 10,
+      \"setOffImmediatelyOnInstantiation\": true}"))
+</pre>
+<pre class="output">Error in JSON:MAKE-OBJECT: Incoming JSON Object <span class="cont">&hellip;</span>
+        "{\"timeout\":10,\"setOffImmediatelyOnInstantiation\":true}" <span class="cont">&hellip;</span>
+        in the class WORLD-DESTRUCTION:TICKING-BOMB <span class="cont">&hellip;</span>
+        violates security restrictions.</pre>
+</div>
+
+<p>By using multiple methods with carefully adjusted specializers and qualifiers the user shall be able to create arbitrarily sophisticated security policies.</p>
+
 
   <h3 class="section"><a name="DECODER-CUSTOMIZATION"></a> Customizing the decoder </h3>
 
@@ -920,8 +974,8 @@ in the scope of every JSON aggregate value (<span class='json'>Object</span>, <s
 <pre class="value">COUNT</pre>
 
 <pre class="in-code">
-(defun format-with-indent (control &rest args)
-  (format t "~&~0,1,V,V@A~?" level #\Tab "" control args))
+(defun format-with-indent (control &amp;rest args)
+  (format t "~&amp;~0,1,V,V@A~?" level #\Tab "" control args))
 </pre>
 <pre class="value">FORMAT-WITH-INDENT</pre>
 
@@ -1090,7 +1144,7 @@ custom variables are captured.</p>
 
 <div class="example">
 <pre class="in-code">
-(defmacro simple-json-bind ((&rest vars) stream &body body)
+(defmacro simple-json-bind ((&amp;rest vars) stream &amp;body body)
   (let ((cur-dec (gensym))
         (key-handler
          `(lambda (json-string)
@@ -1177,7 +1231,7 @@ custom variables are captured.</p>
 </code>
   </p>
 <p class='docstring'>
-Open a JSON <span class='json'>Array</span>, run <span class='other-name'>body</span>, then close the <span class='json'>Array</span>.  Inside the <span class='other-name'>body</span>, <span class='api-name'>as-array-member</span> or <span class='api-name'>encode-array-member</span> should be called to encode <span class='json'>Member</span>s of the <span class='json'>Array</span>.
+Open a JSON <span class='json'>Array</span>, run <span class='arg-name'>body</span>, then close the <span class='json'>Array</span>.  Inside the <span class='arg-name'>body</span>, <span class='api-name'>as-array-member</span> or <span class='api-name'>encode-array-member</span> should be called to encode <span class='json'>Member</span>s of the <span class='json'>Array</span>.
 </p>
 </div>
 
@@ -1190,7 +1244,7 @@ Open a JSON <span class='json'>Array</span>, run <span class='other-name'>body</
 </code>
   </p>
 <p class='docstring'>
-<span class='other-name'>Body</span> should be a program which encodes exactly one JSON datum to <span class='arg-name'>stream</span>.  <span class='api-name'>As-array-member</span> ensures that the datum is properly formatted as a <span class='json'>Member</span> of an <span class='json'>Array</span>, i. e. separated by comma from any preceding or following <span class='json'>Member</span>.
+<span class='arg-name'>Body</span> should be a program which encodes exactly one JSON datum to <span class='arg-name'>stream</span>.  <span class='api-name'>As-array-member</span> ensures that the datum is properly formatted as a <span class='json'>Member</span> of an <span class='json'>Array</span>, i. e. separated by comma from any preceding or following <span class='json'>Member</span>.
 </p>
 </div>
 
@@ -1236,7 +1290,7 @@ value of <span class='arg-name'>encoder</span> (default is <span class='api-name
 </code>
   </p>
 <p class='docstring'>
-Open a JSON <span class='json'>Object</span>, run <span class='other-name'>body</span>, then close the <span class='json'>Object</span>.  Inside the <span class='other-name'>body</span>, <span class='api-name'>as-object-member</span> or <span class='api-name'>encode-object-member</span> should be called to encode <span class='json'>Member</span>s of the <span class='json'>Object</span>.
+Open a JSON <span class='json'>Object</span>, run <span class='arg-name'>body</span>, then close the <span class='json'>Object</span>.  Inside the <span class='arg-name'>body</span>, <span class='api-name'>as-object-member</span> or <span class='api-name'>encode-object-member</span> should be called to encode <span class='json'>Member</span>s of the <span class='json'>Object</span>.
 </p>
 </div>
 
@@ -1249,7 +1303,7 @@ Open a JSON <span class='json'>Object</span>, run <span class='other-name'>body<
 </code>
   </p>
 <p class='docstring'>
-<span class='other-name'>Body</span> should be a program which writes exactly one JSON datum to <span class='arg-name'>stream</span>.  <span class='api-name'>As-object-member</span> ensures that the datum is properly formatted as a <span class='json'>Member</span> of an <span class='json'>Object</span>, i. e. preceded by the (encoded) <span class='other-name'>key</span> and colon, and separated by comma from any preceding or following <span class='json'>Member</span>.
+<span class='arg-name'>Body</span> should be a program which writes exactly one JSON datum to <span class='arg-name'>stream</span>.  <span class='api-name'>As-object-member</span> ensures that the datum is properly formatted as a <span class='json'>Member</span> of an <span class='json'>Object</span>, i. e. preceded by the (encoded) <span class='arg-name'>key</span> and colon, and separated by comma from any preceding or following <span class='json'>Member</span>.
 </p>
 </div>
 
@@ -1433,7 +1487,7 @@ Return a function which takes two arguments and encodes them to
 <p>Likewise, the underlying Lisp system can fail to handle floats which are not representable in the current <code class="other-name">*read-default-float-format*</code> (e. g. <code class="json-literal">2.065e444</code> is non-representable even in the <code class="other-name">long-float</code> format in most contemporary Lisps).  If such a datum is encountered in JSON input, an <code class="other-name">arithmetic-error</code> is signalled.  CL-JSON provides three restarts to correct such cases:</p>
 
 <dl class="restarts">
-  <dd><code><span class="other-name">bignumber-string</span> <span class="lambda-keyword">&optional</span> <span class="arg-name">prefix</span></code></dd>
+  <dd><code><span class="other-name">bignumber-string</span> <span class="lambda-keyword">&amp;optional</span> <span class="arg-name">prefix</span></code></dd>
   <dt>Instead of number, use a string which is the concatenation of <span class="arg-name">prefix</span> and the number token that caused the error.  The default value for <span class="arg-name">prefix</span> is <code>"BIGNUMBER:"</code>.</dt>
   <dd><code class="other-name">rational-approximation</code></dd>
   <dt>Parse the number token into parts, read them as integers, and combine the integers using only rational operations.  Use the resulting rational number in place of float.  (E. g., <code class="json-literal">2.065e444</code> would be converted to the value of the expression <code>(* (+ 2 (* 65 (expt 10 -3))) (expt 10 444))</code>.)</dt>
@@ -1510,6 +1564,7 @@ Return a function which takes two arguments and encodes them to
 <pre class="output">Armadillos have 28 teeth.</pre>
 <pre class="output">Marsupial moles have 22 teeth in the lower jaw.</pre>
 <pre class="output">Marsupial moles have as many lower incisors as dugongs.</pre>
+<pre class="value">NIL</pre>
 </div>
 
 
