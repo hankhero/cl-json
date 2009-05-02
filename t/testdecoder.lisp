@@ -208,20 +208,19 @@ returned!"
   (is (= (decode-json-from-string "3e4") 3e4))  
   (let ((*read-default-float-format* 'double-float))
     (is (= (decode-json-from-string "2e40") 2d40)))
-  #-(or older-sbcl cmu)
+  #-(and sbcl darwin)
   (is (equalp (with-fp-overflow-handler
                   (invoke-restart 'bignumber-string "BIG:")
                 (decode-json-from-string "2e444"))
               "BIG:2e444"))
-  #-(or older-sbcl cmu)
+  #-(and sbcl darwin)
   (is (= (with-fp-overflow-handler
              (invoke-restart 'rational-approximation)
            (decode-json-from-string "2e444"))
          (* 2 (expt 10 444))))
-  ;; In some older versions of SBCL,
-  ;;  constructing the float from parts by explicit operations
-  ;; yields #.SB-EXT:SINGLE-FLOAT-POSITIVE-INFINITY.
-  #+(or older-sbcl cmu)
+  ;; In SBCL on Darwin, constructing the float from parts by explicit
+  ;; operations yields #.SB-EXT:SINGLE-FLOAT-POSITIVE-INFINITY.
+  #+(and sbcl darwin)
   (is (= (decode-json-from-string "2e444")
          (* 2.0 (expt 10.0 444)))))
 
