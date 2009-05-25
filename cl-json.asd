@@ -18,7 +18,7 @@
   :name "cl-json"
   :description "JSON in Lisp. JSON (JavaScript Object Notation) is a lightweight data-interchange format."
   :version "0.4.0"
-  :author "Henrik Hjelte <henrik@evahjelte.com>"
+  :maintainer "Henrik Hjelte <henrik@evahjelte.com>"
   :licence "MIT"
   :components ((:static-file "cl-json.asd")
                (:module :src
