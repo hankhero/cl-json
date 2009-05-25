@@ -128,10 +128,10 @@
   <h2 class="section"><a name="Q-AND-A"></a> Q&amp;A </h2>
 
 <h3>What does CL-JSON do?</h3>
-<p>CL-JSON provides an encoder of Lisp objects to JSON format and a corresponding decoder of JSON data to Lisp objects.  Both the encoder and the decoder are highly customizable; at the same time, the default settings ensure a very simple mode of operation, similar to that provided by <a href="http://common-lisp.net/project/yason/">YASON</a> or <a href="http://marijn.haverbeke.nl/st-json/">ST-JSON</a>.</p>
+<p>CL-JSON provides an encoder of Lisp objects to JSON format and a corresponding decoder of JSON data to Lisp objects.  Both the encoder and the decoder are highly customizable; at the same time, the default settings ensure a very simple mode of operation, similar to that provided by <a href="http://common-lisp.net/project/yason/">YASON</a> or <a href="http://marijn.haverbeke.nl/st-json/">ST-JSON</a>. CL-JSON is well tested and the automated testcases includes the <a href="http://www.json.org/JSON_checker/">JSON_checker</a> tests.</p>
 
 <h3>What is JSON?</h3>
-<p><a href="http://www.json.org">JSON</a> is a language independent text format for data-interchange. JSON is especially convenient in web applications, since it is a subset of the literal object notation of <a href="http://www.json.org/js.html">ECMAScript</a>.  It can also be an alternative to XML. JSON has good open-source support in many languages.</p>
+<p><a href="http://www.json.org">JSON</a> is a language independent text format for data-interchange. It has very good open-source and commercial support in many languages. JSON is especially convenient in web applications, since it is a subset of the literal object notation of <a href="http://www.json.org/js.html">ECMAScript</a>. A technique called <a href="#JSONP">JSONP</a> can be used to do cross-domain Ajax.</p>
 
 <h3>Why not use XML instead?</h3>
 <p>Some find JSON lighter and more simple, see this <a href="http://www.json.org/xml.html">comparison</a>.</p>
@@ -153,6 +153,17 @@ darcs get http://common-lisp.net/project/cl-json/darcs/cl-json
 <p>The latest release can be downloaded <a href="http://www.cliki.net/cl-json">here</a>.</p>
 <p>You can also install it by asdf-install.</p>
 <p>History has shown that the darcs version is probably better than the latest release.</p>
+<h3>History</h3>
+<ul>
+<li>2006 First version by Henrik Hjelte.</li>
+<li>2007-2008 Stable version 0.3.1, no known bugs.</li>
+<li></li>
+<li>2009 Major update by Boris Smilga, adding lots of features. Version 0.4</li>
+</ul>
+
+<h3>Status</h3>
+<p>No know bugs.</p>
+<p>A bit faster decoder performance in 0.3 version, a darcs repo is available (<a href="http://common-lisp.net/project/cl-json/darcs/cl-json-03-branch" title="Premature optimization is the root of all evil">old version</a>).</p>
 
   <h2 class="section"><a name="USER-GUIDE"></a> User Guide </h2>
 
@@ -1570,11 +1581,10 @@ Return a function which takes two arguments and encodes them to
 
   <h4 class="section"><a name="JSON-RPC"></a> JSON-RPC </h4>
 
-<!--
-<p><a href="http://json-rpc.org">JSON-RPC</a> is a lightweight remote procedure call protocol similar to XML-RPC.  The functions described in this section implement the version 1.1 of the JSON-RPC specification (available as <a href="http://json-rpc.org/wd/JSON-RPC-1-1-WD-20060807.html">Working Draft 7 August 2006</a>).  All names in this section are available in the package <code class="api-name">JSON-RPC</code>.</p>
--->
+<p><a href="http://en.wikipedia.org/wiki/JSON-RPC">JSON-RPC</a> is a lightweight remote procedure call protocol similar to XML-RPC.  CL-JSON contains some code that implements  the version 1.1 Working draft of the JSON-RPC specification (available as <a href="http://json-rpc.org/wd/JSON-RPC-1-1-WD-20060807.html">Working Draft 7 August 2006</a>). Just plug it into your http server of choice. See the file json-rpc and the package <code class="api-name">JSON-RPC</code>.</p>
 
   <h4 class="section"><a name="JSONP"></a> JSONP </h4>
+<p> JSONP or JSON with Padding is a technique that allows cross-domain function calls. A remote function call looks like this: your javascript code insert a "script" html tag to the page you are visiting. The url of this script tag is your remote server. You also send the name of a callback function to the server as a query string parameter. The browser expects the script tag to retrieve some javascript code from your server. The JSON reponse from your can be turned into a proper javascript function call statement by prepending the name of the callback function first and then wrapping the JSON chunk inside a pair of parentheses. CL-JSON doesn't have any special code to do JSONP, it is more an issue of simple coding with your web server.
 
 
   <h2 class="section"><a name="MAILING-LISTS"></a> Mailing Lists </h2>
