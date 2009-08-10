@@ -12,6 +12,8 @@
    #:*use-strict-json-rules*
    #:*json-symbols-package*
    #:json-intern
+   #:unknown-symbol-error
+   #:safe-json-intern
    #:*json-identifier-name-to-lisp*
    #:*lisp-identifier-name-to-json*
    #:*identifier-name-to-key*

@@ -85,6 +85,31 @@ Default KEYWORD, NIL = use current *PACKAGE*.")
   "Intern STRING in the current *JSON-SYMBOLS-PACKAGE*."
   (intern string (or *json-symbols-package* *package*)))
 
+(define-condition unknown-symbol-error (parse-error)
+  ((datum :accessor unknown-symbol-error-datum :initarg :datum))
+  (:documentation
+   "Signalled by safe-json-intern when a symbol that is 
+not already interned in *json-symbols-package* is found.")
+  (:report
+   (lambda (condition stream)
+     (format stream
+             "SAFE-JSON-INTERN only allows previously interned symbols, ~A is not interned in *json-symbols-package*"
+             (unknown-symbol-error-datum condition)))))
+
+(defun unknown-symbol-error (string)
+  (error 'unknown-symbol-error :datum string))
+
+(defun safe-json-intern (string)
+  "The default json-intern is not safe. Interns of many 
+unique symbols could potentially use a lot of memory.
+An attack could exploit this by submitting something that is passed
+through cl-json that has many very large, unique symbols. This version
+is safe in that respect because it only allows symbols that already 
+exists."
+  (or (find-symbol string
+                   (or *json-symbols-package* *package*))
+      (unknown-symbol-error string)))
+
 (defvar *json-identifier-name-to-lisp* 'camel-case-to-lisp
   "Designator for a function which maps string (a JSON Object key) to
 string (name of a Lisp symbol).")

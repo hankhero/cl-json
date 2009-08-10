@@ -181,6 +181,17 @@ safe-symbols-parsing function here for a cure."
                      (decode-json-from-string good-symbols)))
           (signals error (decode-json-from-string bad-symbols))))))
 
+(test safe-json-intern
+  (with-decoder-simple-list-semantics
+      (let ((good-symbols "{\"car\":1,\"cdr\":2}")
+            (bad-symbols "{\"could-be\":1,\"a-denial-of-service-attack\":2}")
+            (*json-symbols-package* (find-package :cl))
+            (*identifier-name-to-key* #'safe-json-intern))
+        (is (equal '((car . 1) (cdr . 2))
+                   (decode-json-from-string good-symbols)))
+        (signals unknown-symbol-error (decode-json-from-string bad-symbols)))))
+
+
 (test json-object-camel-case
   (with-decoder-simple-list-semantics
       (let ((*json-symbols-package* (find-package :keyword)))
