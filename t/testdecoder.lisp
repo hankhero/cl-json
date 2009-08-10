@@ -327,6 +327,21 @@ safe-symbols-parsing function here for a cure."
                   (decode-json-from-string json-string)))))
          (funcall #'identity discard-soon))))));Do something so the compiler don't optimize too much
 
+(test decoder-performance-with-simplified-camel-case
+  (let* ((json-string (contents-of-file (test-file "pass1")))
+         (chars (length json-string))
+         (count 1000))
+    (format t "Decoding ~a varying chars from memory ~a times." chars count)
+    (time
+     (with-shadowed-custom-vars
+         (let ((*json-identifier-name-to-lisp* #'simplified-camel-case-to-lisp))
+           (dotimes (x count) 
+             (let ((discard-soon
+                    (with-fp-overflow-handler (invoke-restart 'placeholder :infty)
+                      (with-no-char-handler (invoke-restart 'substitute-char #\?)
+                        (decode-json-from-string json-string)))))
+               (funcall #'identity discard-soon)))))))) ;Do something so the compiler don't optimize too much
+
 ;;#+when-u-want-profiling
 ;;(defun profile-decoder-performance()
 ;;  #+sbcl
