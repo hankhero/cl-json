@@ -207,6 +207,23 @@ safe-symbols-parsing function here for a cure."
                  \"camelCase_Mixed_4_PARTS\": \"partes miscella quatuor\"
                }"))))))
 
+(test json-object-simplified-camel-case
+  ;; Compare this with json-object-camel-case above
+  (with-decoder-simple-list-semantics
+      (let ((*json-symbols-package* (find-package :keyword))
+            (*json-identifier-name-to-lisp* #'simplified-camel-case-to-lisp))
+        (is (equalp '((:hello-key . "hej")
+                      (:hi-starts-with-upper-case . "tjena")
+                      (:jsonall-capitals . "totae majusculae")
+                      (:two_words . "duo verba")
+                      (:camel-case_mixed_4_parts . "partes miscella quatuor"))
+                    (decode-json-from-string " { \"helloKey\" : \"hej\" ,
+                 \"HiStartsWithUpperCase\" : \"tjena\",
+                 \"JSONAllCapitals\": \"totae majusculae\",
+                 \"TWO_WORDS\": \"duo verba\",
+                 \"camelCase_Mixed_4_PARTS\": \"partes miscella quatuor\"
+               }"))))))
+
 (defmacro with-fp-overflow-handler (handler-expr &body body)
   (let ((err (gensym)))
     `(handler-bind ((floating-point-overflow

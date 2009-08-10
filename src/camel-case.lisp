@@ -4,6 +4,26 @@
 
 (in-package :json)
 
+;;; First a simpler version, see testcase json-object-simplified-camel-case
+;;; for difference with the ordinary came-case-to-lisp
+(defun simplified-camel-case-to-lisp (camel-string)
+ "Insert - between lowercase and uppercase chars.
+Ignore _ + * and several consecutive uppercase."
+ (declare (string camel-string))
+ (let ((*print-pretty* nil))
+   (with-output-to-string (result)
+     (loop for c across camel-string
+           with last-was-lowercase
+           when (and last-was-lowercase
+                     (upper-case-p c))
+             do (princ "-" result)
+           if (lower-case-p c)
+             do (setf last-was-lowercase t)
+           else
+             do (setf last-was-lowercase nil)
+           do (princ (char-upcase c) result)))))
+
+
 (defun camel-case-split (string)
   "Assume STRING is in camel case, and split it into largest possible
 ``homogenous'' parts.  A homogenous part consists either a) of
