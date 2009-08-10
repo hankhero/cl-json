@@ -14,6 +14,7 @@
    #:json-intern
    #:*json-identifier-name-to-lisp*
    #:*lisp-identifier-name-to-json*
+   #:*identifier-name-to-key*
    ;; camel-case.lisp
    #:camel-case-to-lisp
    #:lisp-to-camel-case

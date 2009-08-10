@@ -92,3 +92,7 @@ string (name of a Lisp symbol).")
 (defvar *lisp-identifier-name-to-json* 'lisp-to-camel-case
   "Designator for a function which maps string (name of a Lisp symbol)
 to string (e. g. JSON Object key).")
+
+(defvar *identifier-name-to-key* 'json-intern
+  "Designator for a function which, during decoding, maps the *json-identifier-name-to-lisp*
+-transformed key to the value it will have in the result object.")

@@ -164,24 +164,37 @@ returned!"
       (is (equal '((:START--*X-POS . 98) (:START--*Y-POS . 4))
                  (decode-json-from-string tricky-json))))))
 
-
-
+(test custom-identifier-name-to-key
+  "Interns of many unique symbols could potentially use a lot of memory.
+An attack could exploit this by submitting something that is passed 
+through cl-json that has many very large, unique symbols. See the
+safe-symbols-parsing function here for a cure."
+  (with-decoder-simple-list-semantics
+      (flet ((safe-symbols-parsing (name)
+               (or (find-symbol name *json-symbols-package*)
+                   (error "unknown symbols not allowed"))))
+        (let ((good-symbols "{\"car\":1,\"cdr\":2}")
+              (bad-symbols "{\"could-be\":1,\"a-denial-of-service-attack\":2}")
+              (*json-symbols-package* (find-package :cl))
+              (*identifier-name-to-key* #'safe-symbols-parsing))
+          (is (equal '((car . 1) (cdr . 2))
+                     (decode-json-from-string good-symbols)))
+          (signals error (decode-json-from-string bad-symbols))))))
 
 (test json-object-camel-case
   (with-decoder-simple-list-semantics
-    (let ((*json-symbols-package* (find-package :keyword)))
-      (is (equalp '((:hello-key . "hej")
-                    (:*hi-starts-with-upper-case . "tjena")
-                    (:+json+-all-capitals . "totae majusculae")
-                    (:+two-words+ . "duo verba")
-                    (:camel-case--*mixed--+4-parts+ . "partes miscella quatuor"))
-                  (decode-json-from-string " { \"helloKey\" : \"hej\" ,
-                       \"HiStartsWithUpperCase\" : \"tjena\",
-                       \"JSONAllCapitals\": \"totae majusculae\",
-                       \"TWO_WORDS\": \"duo verba\",
-                       \"camelCase_Mixed_4_PARTS\": \"partes miscella quatuor\"
-                     }"))))))
-
+      (let ((*json-symbols-package* (find-package :keyword)))
+        (is (equalp '((:hello-key . "hej")
+                      (:*hi-starts-with-upper-case . "tjena")
+                      (:+json+-all-capitals . "totae majusculae")
+                      (:+two-words+ . "duo verba")
+                      (:camel-case--*mixed--+4-parts+ . "partes miscella quatuor"))
+                    (decode-json-from-string " { \"helloKey\" : \"hej\" ,
+                 \"HiStartsWithUpperCase\" : \"tjena\",
+                 \"JSONAllCapitals\": \"totae majusculae\",
+                 \"TWO_WORDS\": \"duo verba\",
+                 \"camelCase_Mixed_4_PARTS\": \"partes miscella quatuor\"
+               }"))))))
 
 (defmacro with-fp-overflow-handler (handler-expr &body body)
   (let ((err (gensym)))

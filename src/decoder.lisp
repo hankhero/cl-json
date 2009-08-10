@@ -471,7 +471,7 @@ double quote, calling string handlers as it goes."
 
 (defun accumulator-add-key (key)
   "Add a cons whose CAR is KEY to the end of the list accumulator."
-  (let ((key (json-intern (funcall *json-identifier-name-to-lisp* key))))
+  (let ((key (funcall *identifier-name-to-key* (funcall *json-identifier-name-to-lisp* key))))
     (setq *accumulator-last*
           (setf (cdr *accumulator-last*) (cons (cons key nil) nil)))))
 
@@ -601,12 +601,12 @@ Otherwise, create a FLUID-OBJECT with slots interned in
 *JSON-SYMBOLS-PACKAGE*."
   (flet ((as-symbol (value)
            (etypecase value
-             (string (json-intern
-                      (funcall *json-identifier-name-to-lisp* value)))
+             (string (funcall *identifier-name-to-key*
+                       (funcall *json-identifier-name-to-lisp* value)))
              (symbol value)))
          (intern-keys (bindings)
            (loop for (key . value) in bindings
-              collect (cons (json-intern key) value))))
+              collect (cons (funcall *identifier-name-to-key* key) value))))
     (if (typep *prototype* 'prototype)
         (with-slots (lisp-class lisp-superclasses lisp-package)
             *prototype*
