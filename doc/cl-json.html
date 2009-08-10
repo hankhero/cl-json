@@ -107,7 +107,8 @@
         <li><a href="#DEFAULT-OPERATION">The default encoder / decoder</a></li>
         <li><a href="#CLOS-DECODER">The CLOS decoder</a>
           <ul><li><a href="#PROPERTIES-OF-FLUID-OBJECTS">Properties of fluid objects</a></li></ul>
-          <ul><li><a href="#SECURITY-CONSIDERATIONS">Security considerations</a></li></ul></li>
+        </li>
+        <li><a href="#SECURITY-CONSIDERATIONS">Security considerations</a></li>
         <li><a href="#DECODER-CUSTOMIZATION">Customizing the decoder</a></li>
         <li><a href="#STREAMING-API">Customizing the encoder</a></li>
         <li><a href="#CAMEL-CASE-TRANSLATION">Camel case translation</a></li>
@@ -759,6 +760,11 @@ Run <span class='arg-name'>body</span> in a dynamic environment where <span clas
 
 <p>By using multiple methods with carefully adjusted specializers and qualifiers the user shall be able to create arbitrarily sophisticated security policies.</p>
 
+<p><code class="api-name">JSON-INTERN</code> is the default function for translating json-keys to values. The default json-intern is not safe. Interns of many 
+unique symbols could potentially use a lot of memory.
+An attack could exploit this by submitting something that is passed
+through cl-json that has many very large, unique symbols. You may
+want to use the function <code class="api-name">SAFE-JSON-INTERN</code> or some other mechanism for security reasons.</p>
 
   <h3 class="section"><a name="DECODER-CUSTOMIZATION"></a> Customizing the decoder </h3>
 
