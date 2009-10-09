@@ -19,6 +19,33 @@
     (is-false sub-obj.missing-property)
     (is (string= sub-obj.even-deeper-obj.some-stuff "Guten Tag"))))
 
+(test json-bind-in-bind-bug
+  ;; A problem with json-bind. TODO: Fix it, but leave this testcase
+  (let* ((input-json-rpc "{\"method\":\"rc\",\"id\":\"1\",\"params\":
+[\"0\",{\"id\":\"pingId\",\"name\":\"ping\"},[],
+[{\"name\":\"tableTennisGroupName\",\"id\":\"tableTennisGroupId\"}]]}")
+         (input1 (copy-seq input-json-rpc))
+         (input2 (copy-seq input-json-rpc))
+         result1 result2 temp)
+    (flet ((invoke-json-rpc (struct)
+             (json:json-bind (method id params)
+                 struct
+               (format nil "{\"result\":\"~a\",\"error\":null,\"id\":\"1\"}"
+                       params))))
+      ;; This does not work correctly
+      (json:json-bind (result error id)
+          (invoke-json-rpc input1)
+        (setf result1 result))
+      ;; But this works
+      (setf temp (invoke-json-rpc input2))
+      (json:json-bind (result error id)
+          temp
+        (setf result2 result))
+      ;; and to prove it:
+      (is (string= input1 input2)) ;; We have same input
+      (is (string= result1 result2))))) ;; so we should get same output
+
+
 ;;; Invalidated by the patch ``Re-implemented JSON-BIND (to illustrate
 ;;; dynamic customization).'' (Wed Jan 21 20:49:22 MSK 2009)
 ; 
