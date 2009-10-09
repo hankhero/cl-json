@@ -73,6 +73,7 @@
    #:*json-output*
    #:unencodable-value-error
    #:substitute-printed-representation
+   #:with-substitute-printed-representation-restart
    #:encode-json
    #:encode-json-to-string
    #:encode-json-alist
