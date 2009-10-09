@@ -191,8 +191,11 @@ STREAM as a Member of an Object (String : Value pair)."
 ;;; End of YASON code.
 
 
-(defmethod encode-json ((s list) &optional (stream *json-output*))
-  "Write the JSON representation of the list S to STREAM (or to
+;;; You can use the streaming encoder above, or
+;;; two differnet types of sexp based encoders below
+
+(defun encode-json-list-guessing-encoder (s stream)
+"Write the JSON representation of the list S to STREAM (or to
 *JSON-OUTPUT*).  If S is not encodable as a JSON Array, try to encode
 it as an Object (per ENCODE-JSON-ALIST)."
   (handler-bind ((unencodable-value-error
@@ -201,7 +204,7 @@ it as an Object (per ENCODE-JSON-ALIST)."
                       (if (and (consp datum)
                                (not (consp (cdr datum)))
                                (ignore-errors (every #'consp s)))
-                          (return-from encode-json
+                          (return-from encode-json-list-guessing-encoder
                             (encode-json-alist s stream))
                           (error e)))))
                  (type-error
@@ -213,6 +216,72 @@ it as an Object (per ENCODE-JSON-ALIST)."
                       (mapcar (stream-array-member-encoder temp) s)))
                   stream)
     nil))
+
+(defun json-bool (value)
+  "Intended for the JSON-EXPLICT-ENCODER. Converts a non-nil value
+to a value (:true) that creates a json true value when used in the 
+explict encoder. Or (:false)."
+  (if value
+      '(:true)
+      '(:false)))
+
+(defun encode-json-list-explicit-encoder (s stream)
+  (handler-bind ((type-error
+                  (lambda (e)
+                    (declare (ignore e))
+                    (unencodable-value-error s 'encode-json))))
+    (ecase (car s)
+      (:json (mapcar (lambda (str) (write-string str stream))
+                     (cdr s)))
+      (:true (write-json-chars "true" stream))
+      (:false (write-json-chars "false" stream))
+      ((:list :array)
+       (with-array (stream)
+         (mapcar (stream-array-member-encoder stream)
+                 (cdr s))))
+      (:object (if (consp (cadr s))
+                  (encode-json-alist (cdr s) stream)
+                  (encode-json-plist (cdr s) stream)))
+      (:alist (encode-json-alist (cdr s) stream))
+      (:plist (encode-json-plist (cdr s) stream)))
+    nil))
+
+(defparameter *json-list-encoder-fn* #'encode-json-list-guessing-encoder)
+
+(defun use-guessing-encoder ()
+  (setf *json-list-encoder-fn* #'encode-json-list-guessing-encoder))
+
+(defun use-explicit-encoder ()
+  (setf *json-list-encoder-fn* #'encode-json-list-explicit-encoder))
+
+(defmacro with-local-encoder (&body body)
+  `(let (*json-list-encoder-fn*)
+     (declare (special *json-list-encoder-fn*))
+     ,@body))
+
+(defmacro with-guessing-encoder  (&body body)
+  `(with-local-encoder (use-guessing-encoder)
+     ,@body))
+
+(defmacro with-explicit-encoder  (&body body)
+  `(with-local-encoder (use-explicit-encoder)
+     ,@body))
+
+(defmethod encode-json ((s list) &optional (stream *json-output*))
+  "Write the JSON representation of the list S to STREAM (or to
+*JSON-OUTPUT*), using one of the two rules specified by 
+first calling USE-GUESSING-ENCODER or USE-EXPLICIT-ENCODER.
+The guessing encoder: If S is a list encode S as a JSON Array, if
+S is a dotted list encode it as an Object (per ENCODE-JSON-ALIST).
+The explicit decoder: If S is a list, the first symbol defines
+the encoding: 
+If (car S) is 'TRUE return a JSON true value.
+If (car S) is 'FALSE return a JSON false value.
+If (car S) is 'JSON princ the strings in (cdr s) to stream
+If (car S) is 'LIST or 'ARRAY encode (cdr S) as a a JSON Array.
+If (car S) is 'OBJECT encode (cdr S) as A JSON Object, 
+interpreting (cdr S) either as an A-LIST or a P-LIST."
+  (funcall *json-list-encoder-fn* s stream))
 
 (defmethod encode-json ((s sequence) &optional (stream *json-output*))
   "Write the JSON representation (Array) of the sequence S (not an

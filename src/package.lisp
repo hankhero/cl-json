@@ -88,6 +88,12 @@
    #:as-object-member
    #:encode-object-member
    #:stream-object-member-encoder
+   
+   #:use-explicit-encoder
+   #:use-guessing-encoder
+   #:with-explicit-encoder
+   #:with-guessing-encoder
+   #:json-bool
    ;; utils.lisp
    #:json-bind
    )
