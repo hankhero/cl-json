@@ -71,6 +71,13 @@
     (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                    expected))))
 
+(test test-encode-json-alist-nested
+      (let ((alist `((:hello . 100)(:hi . ((:a . 1)
+                                           (:b . 2)))))
+            (expected "{\"hello\":100,\"hi\":{\"a\":1,\"b\":2}}"))
+        (is (string= (with-output-to-string (s) (encode-json-alist alist s))
+                     expected))))
+
 (test test-encode-json-alist-string
       (let ((alist `((:hello . "hej")(:hi . "tjena")))
             (expected "{\"hello\":\"hej\",\"hi\":\"tjena\"}"))
@@ -80,6 +87,16 @@
 (test test-encode-json-alist-camel-case
       (let ((alist `((:hello-message . "hej")(*also-starting-with-upper . "hej")))
             (expected "{\"helloMessage\":\"hej\",\"AlsoStartingWithUpper\":\"hej\"}"))
+        (is (string= (with-output-to-string (s) (encode-json-alist alist s))
+                     expected))))
+
+(test test-encode-json-alist-embedded-nil
+  ;; It makes construction easier in some cases, such as this:
+      (let ((alist `((:hello . "england")
+                     ,(when nil
+                            '(:ciao . "italy"))
+                     (:hej . "sweden")))
+            (expected "{\"hello\":\"england\",\"hej\":\"sweden\"}"))
         (is (string= (with-output-to-string (s) (encode-json-alist alist s))
                      expected))))
 

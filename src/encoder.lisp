@@ -257,8 +257,9 @@ STREAM (or to *JSON-OUTPUT*)."
                         (if (consp binding)
                             (destructuring-bind (key . value) binding
                               (encode-object-member key value temp))
-                            (unencodable-value-error
-                             alist 'encode-json-alist))))
+                            (unless (null binding)
+                              (unencodable-value-error
+                               alist 'encode-json-alist)))))
                   (unencodable-value-error alist 'encode-json-alist)))))
      stream)
     nil))
