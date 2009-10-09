@@ -94,6 +94,7 @@
    #:with-explicit-encoder
    #:with-guessing-encoder
    #:json-bool
+   #:json-or-null
    ;; utils.lisp
    #:json-bind
    )

@@ -225,6 +225,11 @@ explict encoder. Or (:false)."
       '(:true)
       '(:false)))
 
+(defun json-or-null (value)
+  "Intended for the JSON-EXPLICT-ENCODER. Returns a non-nil value
+as itself, or a nil value as a json null-value"
+  (or value '(:null)))
+
 (defun encode-json-list-explicit-encoder (s stream)
   (handler-bind ((type-error
                   (lambda (e)
@@ -235,6 +240,7 @@ explict encoder. Or (:false)."
                      (cdr s)))
       (:true (write-json-chars "true" stream))
       (:false (write-json-chars "false" stream))
+      (:null (write-json-chars "null" stream))
       ((:list :array)
        (with-array (stream)
          (mapcar (stream-array-member-encoder stream)
@@ -277,6 +283,7 @@ The explicit decoder: If S is a list, the first symbol defines
 the encoding: 
 If (car S) is 'TRUE return a JSON true value.
 If (car S) is 'FALSE return a JSON false value.
+If (car S) is 'NULL return a JSON null value.
 If (car S) is 'JSON princ the strings in (cdr s) to stream
 If (car S) is 'LIST or 'ARRAY encode (cdr S) as a a JSON Array.
 If (car S) is 'OBJECT encode (cdr S) as A JSON Object, 

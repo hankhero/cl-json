@@ -321,6 +321,10 @@
                (with-explicit-encoder
                  (encode-json-to-string '(:false))))
       "False")
+  (is (string= "null"
+               (with-explicit-encoder
+                 (encode-json-to-string '(:null))))
+      "False")
   (is (string= "[1,\"a\"]"
                (with-explicit-encoder
                  (encode-json-to-string '(:list 1 "a"))))
@@ -425,6 +429,15 @@
   (is (equal (json-bool t) '(:true)))
   (is (equal (json-bool 1) '(:true)))
   (is (equal (json-bool nil) '(:false))))
+
+(test json-or-null
+  (is (equal (json-or-null 'something) 'something))
+  (is (equal (json-or-null '(:list)) '(:list)))
+  (is (equal (json-or-null nil) '(:null)))
+  (is (equal (json-or-null (when t  '(:list)))
+             '(:list)))
+  (is (equal (json-or-null (when nil  '(:list)))
+             '(:null))))
 
 (test sample-explict-decoder-building-with-json-bool
   (labels
