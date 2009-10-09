@@ -35,16 +35,46 @@
 ;               (macroexpand-1 '(json::assoc-lookup parent widget-id data)))))
 
 
-(defun-json-rpc foo (x y)
-  "Adds two numbers"
-  (+ x y))
 
+;; JSON-RPC
 
-(test test-json-rpc
+;; Old syntax:
+;;    (defun-json-rpc foo (x y)
+;;        "Adds two numbers"
+;;      (+ x y))
+
+(defun-json-rpc foo-g :guessing (x y)
+     "Adds two numbers, returns number and string"
+     (let ((val (+ x y)))
+       `((:digits . ,val)
+         (:letters . ,(format nil "~R" val)))))
+
+(defun-json-rpc foo-e :explicit (x y)
+     "Adds two numbers, returns number and string"
+     (let ((val (+ x y)))
+       `(:object :digits  ,val 
+                 :letters ,(format nil "~R" val))))
+
+(defun-json-rpc foo-s :streaming (x y)
+     "Adds two numbers, returns number and string"
+     (let ((val (+ x y)))
+       (format nil "{\"digits\":~a,\"letters\":\"~R\"}" val val)))
+
+(defun test-json-rpc-helper (method-name)
   (with-decoder-simple-list-semantics
     (let (result)
-      (setf result (json-rpc:invoke-rpc "{\"method\":\"foo\",\"params\":[1,2],\"id\":999}"))
-      (is (string= result "{\"result\":3,\"error\":null,\"id\":999}")))))
+      (setf result (json-rpc:invoke-rpc
+                    (format nil "{\"method\":\"~a\",\"params\":[1,2],\"id\":999}" method-name)))
+      (is (string= result "{\"result\":{\"digits\":3,\"letters\":\"three\"},\"error\":null,\"id\":999}")))))
+
+(test test-json-rpc
+  (test-json-rpc-helper "fooG"))
+
+(test test-json-rpc-explicit
+  (test-json-rpc-helper "fooE"))
+
+(test test-json-rpc-streaming
+  (test-json-rpc-helper "fooS"))
 
 (test test-json-rpc-unknown-fn
   (with-decoder-simple-list-semantics
