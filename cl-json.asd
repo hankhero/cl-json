@@ -11,8 +11,11 @@
 (in-package #:json-system)
 
 (pushnew :cl-json *features*)
-#+(or mcl openmcl cmu sbcl clisp ecl scl lispworks allegro)
-(pushnew :cl-json-clos *features*)
+
+#-no-cl-json-clos ;; Does not work with SBCL 1.0.17, this is a way to turn it off
+(progn
+  #+(or mcl openmcl cmu sbcl clisp ecl scl lispworks allegro)
+  (pushnew :cl-json-clos *features*))
 
 (defsystem :cl-json
   :name "cl-json"
