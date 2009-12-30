@@ -69,35 +69,46 @@ It has three properties:
     * params - An Array of objects to pass as arguments to the method.
     * id - The request id. This can be of any type. It is used to match the response with the request that it is replying to. "
   (json-bind (method params id) json-source
-    (restart-case
-        (let ((func-type (gethash method *json-rpc-functions*)))
-          (if func-type
-              (destructuring-bind (func . type) func-type
-                (let ((retval (restart-case (apply func params)
-                                                  (use-value (value)
-                                                    value)))
-                      explicit-retval)
+    (invoke-rpc-parsed method params id)))
+
+(defun invoke-rpc-parsed (method params &optional id)
+  (restart-case
+      (let ((func-type (gethash method *json-rpc-functions*)))
+        (if func-type
+            (destructuring-bind (func . type) func-type
+              (let ((retval (restart-case (apply func params)
+                              (use-value (value)
+                                value)))
+                    explicit-retval)
+                (when id
+                  ;; if there's no id, this is a notification, and no response should be sent
+                  ;; [2009/12/30:rpg]
                   (setf explicit-retval
-                       (ecase type
-                         (:guessing (list :json
-                                          (with-guessing-encoder
-                                            (encode-json-to-string retval))))
-                         (:streaming (if (stringp retval)
-                                         (list :json retval)))
-                         (:explicit retval)))
-                  (make-rpc-response :id id :result explicit-retval)))
-              
-              (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 "Procedure not found"))))
-      (send-error (message &optional code error-object)
-        (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 message
-                                                                         :code code
-                                                                         :error-object error-object)))
-      (send-error-object (error-object)
-        (make-rpc-response :id id :error error-object))
-      (send-nothing ()
-        nil)
-      (send-internal-error ()
-        (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 "Service error"))))))
+                        (ecase type
+                          (:guessing (list :json
+                                           (with-guessing-encoder
+                                               (encode-json-to-string retval))))
+                          (:streaming (if (stringp retval)
+                                          (list :json retval)))
+                          (:explicit retval)))
+                  (make-rpc-response :id id :result explicit-retval))))
+
+            (when id
+              (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 "Procedure not found")))))
+
+    (send-error (message &optional code error-object)
+      :test (lambda (c) (declare (ignore c)) id)
+      (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 message
+                                                                       :code code
+                                                                       :error-object error-object)))
+    (send-error-object (error-object)
+      :test (lambda (c) (declare (ignore c)) id)
+      (make-rpc-response :id id :error error-object))
+    (send-nothing ()
+      nil)
+    (send-internal-error ()
+      :test (lambda (c) (declare (ignore c)) id)
+      (make-rpc-response :id id :error (make-json-rpc-error-object-1.1 "Service error")))))
 
 (defmacro def-restart (restart-name &rest (params))
   `(defun ,restart-name (,@params &optional condition)

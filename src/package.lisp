@@ -88,7 +88,7 @@
    #:as-object-member
    #:encode-object-member
    #:stream-object-member-encoder
-   
+
    #:use-explicit-encoder
    #:use-guessing-encoder
    #:with-explicit-encoder
@@ -108,7 +108,7 @@
     #:class-direct-slots
     #:class-direct-superclasses
     #:slot-definition-name
-    #:add-direct-subclass 
+    #:add-direct-subclass
     #:remove-direct-subclass
     #:validate-superclass
     #:class-precedence-list
@@ -123,6 +123,7 @@
     #:defun-json-rpc
     #:export-as-json-rpc
     #:invoke-rpc
+    #:invoke-rpc-parsed
 
     ;; restarts
     #:send-error
