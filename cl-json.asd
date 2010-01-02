@@ -23,6 +23,7 @@
   :version "0.4.0"
   :maintainer "Henrik Hjelte <henrik@evahjelte.com>"
   :licence "MIT"
+  :in-order-to ((test-op (test-op "cl-json.test")))
   :components ((:static-file "cl-json.asd")
                (:module :src
                 :components ((:file "package")
@@ -37,9 +38,16 @@
 
 (defsystem :cl-json.test
   :depends-on (:cl-json :fiveam )
+  ;; newer ASDF versions have this implicitly, but I know of no good way to detect this. [2010/01/02:rpg]
+  :in-order-to ((test-op (load-op "cl-json.test")))
   :components ((:module :t
                :components ((:file "package")
                             (:file "testjson" :depends-on ("package" "testdecoder" "testencoder" "testmisc"))
                             (:file "testmisc" :depends-on ("package" "testdecoder" "testencoder"))
                             (:file "testdecoder" :depends-on ("package"))
                             (:file "testencoder" :depends-on ("package"))))))
+
+(defmethod perform ((op test-op) (c (eql (find-system :cl-json.test))))
+  (funcall (intern (symbol-name '#:run!) :it.bese.FiveAM)
+           (intern (symbol-name '#:json) :json-test)))
+
