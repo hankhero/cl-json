@@ -51,3 +51,11 @@
   (funcall (intern (symbol-name '#:run!) :it.bese.FiveAM)
            (intern (symbol-name '#:json) :json-test)))
 
+(defparameter *cl-json-directory* (make-pathname :directory (pathname-directory *load-truename*)))
+
+(defmethod perform :after ((op load-op) (comp (eql (find-system :cl-json.test))))
+  (eval `(setf ,(intern (symbol-name '#:*json-test-files-path*) :json-test)
+               (merge-pathnames "t/" *cl-json-directory*))))
+
+
+

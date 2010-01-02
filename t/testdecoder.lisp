@@ -166,7 +166,7 @@ returned!"
 
 (test custom-identifier-name-to-key
   "Interns of many unique symbols could potentially use a lot of memory.
-An attack could exploit this by submitting something that is passed 
+An attack could exploit this by submitting something that is passed
 through cl-json that has many very large, unique symbols. See the
 safe-symbols-parsing function here for a cure."
   (with-decoder-simple-list-semantics
@@ -244,9 +244,9 @@ safe-symbols-parsing function here for a cure."
   (is (= (decode-json-from-string "100") 100))
   (is (= (decode-json-from-string "10.01") 10.01))
   (is (= (decode-json-from-string "-2.3") -2.3))
-  (is (= (decode-json-from-string "-2.3e3") -2.3e3))          
+  (is (= (decode-json-from-string "-2.3e3") -2.3e3))
   (is (= (decode-json-from-string "-3e4") -3e4))
-  (is (= (decode-json-from-string "3e4") 3e4))  
+  (is (= (decode-json-from-string "3e4") 3e4))
   (let ((*read-default-float-format* 'double-float))
     (is (= (decode-json-from-string "2e40") 2d40)))
   #-(and sbcl darwin)
@@ -266,7 +266,7 @@ safe-symbols-parsing function here for a cure."
          (* 2.0 (expt 10.0 444)))))
 
 
-(defparameter *json-test-files-path* *load-pathname*)
+(defvar *json-test-files-path*)
 
 (defun test-file (name)
   (make-pathname :name name :type "json" :defaults *json-test-files-path*))
@@ -304,8 +304,8 @@ safe-symbols-parsing function here for a cure."
 (test fail-files
   (dotimes (x 24)
     (if (member x *ignore-tests-strict*)
-        (is-true t) 
-        (5am:signals error 
+        (is-true t)
+        (5am:signals error
           (decode-file (test-file (format nil "fail~a" x)))))))
 
 (defun contents-of-file(file)
@@ -314,13 +314,13 @@ safe-symbols-parsing function here for a cure."
       (read-sequence s stream)
       s)))
 
-(test decoder-performance  
+(test decoder-performance
   (let* ((json-string (contents-of-file (test-file "pass1")))
          (chars (length json-string))
          (count 1000))
     (format t "Decoding ~a varying chars from memory ~a times." chars count)
     (time
-     (dotimes (x count) 
+     (dotimes (x count)
        (let ((discard-soon
               (with-fp-overflow-handler (invoke-restart 'placeholder :infty)
                 (with-no-char-handler (invoke-restart 'substitute-char #\?)
@@ -335,7 +335,7 @@ safe-symbols-parsing function here for a cure."
     (time
      (with-shadowed-custom-vars
          (let ((*json-identifier-name-to-lisp* #'simplified-camel-case-to-lisp))
-           (dotimes (x count) 
+           (dotimes (x count)
              (let ((discard-soon
                     (with-fp-overflow-handler (invoke-restart 'placeholder :infty)
                       (with-no-char-handler (invoke-restart 'substitute-char #\?)
@@ -350,7 +350,7 @@ safe-symbols-parsing function here for a cure."
 ;;          (count 10))
 ;;      (format t "Parsing test-file pass1 from memory ~a times." count)
 ;;      (sb-sprof:with-profiling ()
-;;        (dotimes (x count) 
+;;        (dotimes (x count)
 ;;          (let ((discard-soon (decode-json-from-string json-string)))
 ;;            (funcall #'identity discard-soon))))
 ;;      (sb-sprof:report)
