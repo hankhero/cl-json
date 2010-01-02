@@ -249,12 +249,12 @@ safe-symbols-parsing function here for a cure."
   (is (= (decode-json-from-string "3e4") 3e4))
   (let ((*read-default-float-format* 'double-float))
     (is (= (decode-json-from-string "2e40") 2d40)))
-  #-(and sbcl darwin)
+  #-(or (and sbcl darwin) (and allegro macosx))
   (is (equalp (with-fp-overflow-handler
                   (invoke-restart 'bignumber-string "BIG:")
                 (decode-json-from-string "2e444"))
               "BIG:2e444"))
-  #-(and sbcl darwin)
+  #-(or (and sbcl darwin) (and allegro macosx))
   (is (= (with-fp-overflow-handler
              (invoke-restart 'rational-approximation)
            (decode-json-from-string "2e444"))
@@ -403,6 +403,7 @@ safe-symbols-parsing function here for a cure."
         (is (equal (symbol-package (caar x))
                    (find-package :keyword))))
       #+(and cl-json-clos
+             (not allegro) ; seems like allegro doesn't, either.
              (not cmu))   ; CMUCL does not allow keywords as slot names
       (with-decoder-simple-clos-semantics
         (setf x (decode-json-from-string "{\"x\":1}"))
