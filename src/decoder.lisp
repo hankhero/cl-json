@@ -400,6 +400,17 @@ double quote, calling string handlers as it goes."
          do (funcall *string-char-handler* c)
          finally (return (funcall *end-of-string-handler*))))))
 
+;;; handling numerical read errors in ACL
+#+allegro
+(defun allegro-read-numerical-overflow-p (condition)
+  (and (typep condition 'simple-error)
+       (search "is too large to be converted"
+               (slot-value condition 'excl::format-control))))
+
+#+allegro
+(deftype allegro-reader-numerical-overflow ()
+  `(and error (satisfies allegro-read-numerical-overflow-p)))
+
 
 ;;; The default semantics
 
@@ -408,7 +419,7 @@ double quote, calling string handlers as it goes."
   ;; We can be reasonably sure that nothing but well-formed (both in
   ;; JSON and Lisp sense) number literals get to this point.
   (handler-case (read-from-string token)
-    ((or reader-error #+ecl arithmetic-error #+allegro error) (err)
+    ((or reader-error #+ecl arithmetic-error) (err)
       ;; Typically, this happens when the exponent is too large for
       ;; the number to be represented as a float -- a concealed (or,
       ;; exceptionally in ECL, manifest) FLOATING-POINT-OVERFLOW.  At
@@ -417,7 +428,7 @@ double quote, calling string handlers as it goes."
       ;; either this causes the overflow error to be explicitly
       ;; signaled, or else we might get some more or less
       ;; non-nonsensical value.
-     (let ((f-marker (position #\. token :test #'char-equal))
+      (let ((f-marker (position #\. token :test #'char-equal))
             (e-marker (position #\e token :test #'char-equal)))
         (if (or e-marker f-marker)
             (let* ((int-part
@@ -425,7 +436,7 @@ double quote, calling string handlers as it goes."
                    (frac-part
                     (if f-marker
                         (subseq token (1+ f-marker) e-marker)
-                        "0"))
+                        "0")) 
                    (significand
                     (+ (read-from-string int-part)
                        (* (read-from-string frac-part)
