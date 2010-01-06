@@ -1,5 +1,5 @@
 ;;; -*- lisp -*-
-;;; Copyright (c) 2006-2008 Henrik Hjelte
+;;; Copyright (c) 2006-2010 Henrik Hjelte
 ;;; All rights reserved.
 ;;; See the file LICENSE for terms of use and distribution.
 
