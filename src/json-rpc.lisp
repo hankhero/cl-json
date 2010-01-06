@@ -108,3 +108,37 @@ It has three properties:
 (def-restart send-error-object (explicit-errobject))
 (def-restart send-nothing ())
 (def-restart send-internal-error ())
+
+
+
+;;;; This is a fragment of how to generate a smd description
+;;;; If someone is interested you might want to clean this
+;;;; up and incorporated this into json-rpc
+;;;;
+;;;;     (defmacro defun-schat-api (name params &body body)
+;;;;        ..... 
+;;;;         (setf (gethash ',name *json-rpc-method-definitions*)
+;;;;          (list :parameters params))
+;;;;     
+;;;;     (defun generate-smd (stream service-url)
+;;;;       (let ((json-data 
+;;;;     	   `(:object
+;;;;                  :service-type  "JSON-RPC"
+;;;;                  :service-+url+ ,service-url
+;;;;     	     :methods
+;;;;                  (:list
+;;;;                   ,@(loop for fname being each hash-key of *json-rpc-method-definitions*
+;;;;                        using (hash-value description)
+;;;;                        for params = (getf description :parameters)
+;;;;                        collect `(:object
+;;;;                                  :name ,fname
+;;;;                                  :parameters (:list
+;;;;                                               ,@(loop for param in params
+;;;;                                                    collect `(:object :name ,param)))))))))
+;;;;           (json:with-explicit-encoder
+;;;;             (json:encode-json json-data stream))))
+;;;;     
+;;;;     (defun generate-smd-file (filename)
+;;;;       (with-open-file (s filename :direction :output :if-exists :supersede)
+;;;;         (generate-smd s "/schat/json-rpc")))
+;;;;     
