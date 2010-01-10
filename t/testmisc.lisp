@@ -87,12 +87,80 @@
      (let ((val (+ x y)))
        (format nil "{\"digits\":~a,\"letters\":\"~R\"}" val val)))
 
+(defun-json-rpc foo-b :boolean (x)
+  "Takes a lisp value and just passes it through identity;
+we can use this to probe the behavior of the boolean
+encoding."
+  (if (equalp x "error")
+      (error "Intentionally raised error.")
+      x))
+
+(defun-json-rpc foo-a :array (x)
+  "Takes a lisp value and just passes it through identity;
+we can use this to probe the behavior of the array
+encoding."
+  (if (equalp x "error")
+      (error "Intentionally raised error.")
+      x))
+
 (defun test-json-rpc-helper (method-name)
   (with-decoder-simple-list-semantics
     (let (result)
       (setf result (json-rpc:invoke-rpc
                     (format nil "{\"method\":\"~a\",\"params\":[1,2],\"id\":999}" method-name)))
       (is (string= result "{\"result\":{\"digits\":3,\"letters\":\"three\"},\"error\":null,\"id\":999}")))))
+
+(defun test-json-rpc-boolean-helper (input-value output-value)
+  (with-decoder-simple-list-semantics
+    (let* ((error (eq output-value :error))
+           (expected (cond ((eq output-value :error) 
+                            nil)
+                           (output-value "true")
+                           (t "false")))
+           (input-encoded 
+            (with-guessing-encoder
+              (encode-json-to-string input-value)))
+           (result
+            (handler-bind 
+                ((error #'(lambda (x)
+                            (declare (ignore x))
+                            (invoke-restart 'json-rpc:send-internal-error))))
+              (json-rpc:invoke-rpc
+               (format nil "{\"method\":\"fooB\",\"params\":[~a],\"id\":999}" input-encoded)))))
+      (if error
+          (let ((res (decode-json-from-string result)))
+            (is (and (null (cdr (assoc :result res)))
+                     (cdr (assoc :error res)))))
+          (is (string= result 
+                       (format nil "{\"result\":~a,\"error\":null,\"id\":999}"
+                               expected)))))))
+
+(defun test-json-rpc-array-helper (input-value output-value)
+  (with-decoder-simple-list-semantics
+    (let* ((error (eq output-value :error))
+           (expected (cond ((eq output-value :error) 
+                            nil)
+                           (t 
+                            (with-guessing-encoder 
+                              (encode-json-to-string output-value)))))
+           (input-encoded 
+            (with-guessing-encoder
+              (encode-json-to-string input-value)))
+           (result
+            (handler-bind 
+                ((error #'(lambda (x)
+                            (invoke-restart 'json-rpc:send-error
+                                            (format nil "~a" x)
+                                            999))))
+              (json-rpc:invoke-rpc
+               (format nil "{\"method\":\"fooA\",\"params\":[~a],\"id\":999}" input-encoded)))))
+      (if error
+          (let ((res (decode-json-from-string result)))
+            (is (and (null (cdr (assoc :result res)))
+                     (cdr (assoc :error res)))))
+          (is (string= result 
+                       (format nil "{\"result\":~a,\"error\":null,\"id\":999}"
+                               expected)))))))
 
 (test test-json-rpc
   (test-json-rpc-helper "fooG"))
@@ -102,6 +170,30 @@
 
 (test test-json-rpc-streaming
   (test-json-rpc-helper "fooS"))
+
+(test test-json-rpc-boolean-true
+  (test-json-rpc-boolean-helper t t))
+
+(test test-json-rpc-boolean-false
+  (test-json-rpc-boolean-helper nil nil))
+
+(test test-json-rpc-boolean-error
+  (test-json-rpc-boolean-helper :error :error))
+
+(test test-json-rpc-array-simple
+  (test-json-rpc-array-helper (list 1 2 3) (list 1 2 3)))
+
+(test test-json-rpc-array-array
+  (test-json-rpc-array-helper #(1 2 3) (list 1 2 3)))
+
+(test test-json-rpc-empty-array
+  (test-json-rpc-array-helper #() #()))
+
+(test test-json-rpc-array-nil
+  (test-json-rpc-array-helper nil #()))
+
+(test test-json-rpc-array-scalar-error
+  (test-json-rpc-array-helper 1 :error))
 
 (test test-json-rpc-unknown-fn
   (with-decoder-simple-list-semantics

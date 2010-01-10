@@ -118,10 +118,12 @@
 
 (defpackage :json-rpc
   (:use :common-lisp :json)
+  (:shadow #:defconstant)
   (:export
     #:clear-exported
-    #:defun-json-rpc
     #:export-as-json-rpc
+
+    ;; invoke functions for the benefit of JSON-RPC
     #:invoke-rpc
     #:invoke-rpc-parsed
 
@@ -130,4 +132,11 @@
     #:send-error-object
     #:send-nothing
     #:send-internal-error
+
+    ;; special variable for controlling JSON-RPC
+    #:*json-rpc-version*
+
+    ;; declarations
+    #:def-json-rpc-encoding
+    #:defun-json-rpc
     ))
