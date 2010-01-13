@@ -136,6 +136,10 @@
     ;; special variable for controlling JSON-RPC
     #:*json-rpc-version*
 
+    ;; constants
+    #:+json-rpc-1.1+
+    #:+json-rpc-2.0+
+
     ;; declarations
     #:def-json-rpc-encoding
     #:defun-json-rpc
