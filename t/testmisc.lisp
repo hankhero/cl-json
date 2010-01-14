@@ -103,12 +103,17 @@ encoding."
       (error "Intentionally raised error.")
       x))
 
+(defun json-rpc-2-p (&optional (flag json-rpc:*json-rpc-version*))
+  (eql (aref flag 0) #\2))
+
 (defun test-json-rpc-helper (method-name)
   (with-decoder-simple-list-semantics
     (let (result)
       (setf result (json-rpc:invoke-rpc
-                    (format nil "{\"method\":\"~a\",\"params\":[1,2],\"id\":999}" method-name)))
-      (is (string= result "{\"result\":{\"digits\":3,\"letters\":\"three\"},\"error\":null,\"id\":999}")))))
+                    (format nil "{~@[~*\"jsonrpc\":\"2.0\",~]\"method\":\"~a\",\"params\":[1,2],\"id\":999}" (json-rpc-2-p) method-name)))
+      (is (string= result 
+                   (format nil "{~@[~*\"jsonrpc\":\"2.0\",~]\"result\":{\"digits\":3,\"letters\":\"three\"},~@[~*\"error\":null,~]\"id\":999}" 
+                           (json-rpc-2-p) (not (json-rpc-2-p))))))))
 
 (defun test-json-rpc-boolean-helper (input-value output-value)
   (with-decoder-simple-list-semantics
@@ -122,18 +127,25 @@ encoding."
               (encode-json-to-string input-value)))
            (result
             (handler-bind 
-                ((error #'(lambda (x)
-                            (declare (ignore x))
-                            (invoke-restart 'json-rpc:send-internal-error))))
+                ((json-rpc-call-error #'(lambda (x)
+                                          (declare (ignore x))
+                                          (invoke-restart 'json-rpc:send-internal-error))))
               (json-rpc:invoke-rpc
-               (format nil "{\"method\":\"fooB\",\"params\":[~a],\"id\":999}" input-encoded)))))
+               (format nil 
+                       "{~@[~*\"jsonrpc\":\"2.0\",~]\"method\":\"fooB\",\"params\":[~a],\"id\":999}" 
+                       (json-rpc-2-p) input-encoded)))))
       (if error
           (let ((res (decode-json-from-string result)))
-            (is (and (null (cdr (assoc :result res)))
-                     (cdr (assoc :error res)))))
+            (if (json-rpc-2-p)
+                ;; if there's an error in 2.0, the result must be missing, not null
+                (is (and (null (assoc :result res))
+                         (cdr (assoc :error res))))
+                (is (and (null (cdr (assoc :result res)))
+                         (cdr (assoc :error res))))))
           (is (string= result 
-                       (format nil "{\"result\":~a,\"error\":null,\"id\":999}"
-                               expected)))))))
+                       (format nil "{~@[~*\"jsonrpc\":\"2.0\",~]\"result\":~a,~@[~*\"error\":null,~]\"id\":999}"
+                               (json-rpc-2-p) expected
+                               (not (json-rpc-2-p)))))))))
 
 (defun test-json-rpc-array-helper (input-value output-value)
   (with-decoder-simple-list-semantics
@@ -153,46 +165,59 @@ encoding."
                                             (format nil "~a" x)
                                             999))))
               (json-rpc:invoke-rpc
-               (format nil "{\"method\":\"fooA\",\"params\":[~a],\"id\":999}" input-encoded)))))
+               (format nil "{~@[~*\"jsonrpc\":\"2.0\",~]\"method\":\"fooA\",\"params\":[~a],\"id\":999}" 
+                       (json-rpc-2-p) input-encoded)))))
       (if error
           (let ((res (decode-json-from-string result)))
             (is (and (null (cdr (assoc :result res)))
                      (cdr (assoc :error res)))))
           (is (string= result 
-                       (format nil "{\"result\":~a,\"error\":null,\"id\":999}"
-                               expected)))))))
+                       (format nil "{~@[~*\"jsonrpc\":\"2.0\",~]\"result\":~a,~@[~*\"error\":null,~]\"id\":999}"
+                               (json-rpc-2-p) expected
+                               (not (json-rpc-2-p)))))))))
 
-(test test-json-rpc
+(defmacro test-json-rpc-both (name &rest body)
+  (let ((two-oh-name
+         (intern (concatenate 'string (symbol-name name) "-"
+                              (symbol-name '#:json-rpc-2.0)))))
+  `(progn
+     (test ,name 
+       ,@body)
+     (test ,two-oh-name
+       (let ((json-rpc:*json-rpc-version* json-rpc:+json-rpc-2.0+))
+         ,@body)))))
+
+(test-json-rpc-both test-json-rpc
   (test-json-rpc-helper "fooG"))
 
-(test test-json-rpc-explicit
+(test-json-rpc-both test-json-rpc-explicit
   (test-json-rpc-helper "fooE"))
 
-(test test-json-rpc-streaming
+(test-json-rpc-both test-json-rpc-streaming
   (test-json-rpc-helper "fooS"))
 
-(test test-json-rpc-boolean-true
+(test-json-rpc-both test-json-rpc-boolean-true
   (test-json-rpc-boolean-helper t t))
 
-(test test-json-rpc-boolean-false
+(test-json-rpc-both test-json-rpc-boolean-false
   (test-json-rpc-boolean-helper nil nil))
 
-(test test-json-rpc-boolean-error
+(test-json-rpc-both test-json-rpc-boolean-error
   (test-json-rpc-boolean-helper :error :error))
 
-(test test-json-rpc-array-simple
+(test-json-rpc-both test-json-rpc-array-simple
   (test-json-rpc-array-helper (list 1 2 3) (list 1 2 3)))
 
-(test test-json-rpc-array-array
+(test-json-rpc-both test-json-rpc-array-array
   (test-json-rpc-array-helper #(1 2 3) (list 1 2 3)))
 
-(test test-json-rpc-empty-array
+(test-json-rpc-both test-json-rpc-empty-array
   (test-json-rpc-array-helper #() #()))
 
-(test test-json-rpc-array-nil
+(test-json-rpc-both test-json-rpc-array-nil
   (test-json-rpc-array-helper nil #()))
 
-(test test-json-rpc-array-scalar-error
+(test-json-rpc-both test-json-rpc-array-scalar-error
   (test-json-rpc-array-helper 1 :error))
 
 (test test-json-rpc-unknown-fn

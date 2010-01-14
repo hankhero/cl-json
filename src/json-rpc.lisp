@@ -125,41 +125,44 @@ It has three properties:
     * id - This must be the same id as the request it is responding to. "
   (cond ((equalp *json-rpc-version* +json-rpc-1.1+)
          (with-explicit-encoder
-             (json:encode-json-to-string
-              `(:object
-                (:result . ,result)
-                (:error . ,error)
-                (:id . ,id)))))
-        ((and (equalp *json-rpc-version* +json-rpc-2.0+)
-              result)
-         (when error
-           (error "Forbidden to have both a JSON-RPC result AND a JSON-RPC error."))
-         (with-explicit-encoder
-             (json:encode-json-to-string
-              `(:object
-                (:jsonrpc . ,+json-rpc-2.0+)
-                (:result . ,result)
-                (:id . ,id)))))
-        ((and (equalp *json-rpc-version* +json-rpc-2.0+)
-              error)
-         (unless (and (assoc :code error)
-                      (integerp (cdr (assoc :code error)))
-                      (assoc :message error)
-                      (stringp (cdr (assoc :message error))))
-           (cerror "Just return it anyway."
-                   "Ill-formed JSON-RPC error, ~a, for version ~a"
-                   error *json-rpc-version*))
-         (with-explicit-encoder
-             (json:encode-json-to-string
-              `(:object
-                (:jsonrpc . ,+json-rpc-2.0+)
-                (:error . ,error)
-                (:id . ,id)))))
-        (t (error "Ill-formed JSON-RPC response for protocol version ~a." *json-rpc-version*))))
+           (json:encode-json-to-string
+            `(:object
+              (:result . ,result)
+              (:error . ,error)
+              (:id . ,id)))))
+        ((equalp *json-rpc-version* +json-rpc-2.0+)
+         (cond (result
+                (when error
+                  (error "Forbidden to have both a JSON-RPC result AND a JSON-RPC error."))
+                (with-explicit-encoder
+                  (json:encode-json-to-string
+                   `(:object
+                     (:jsonrpc . ,+json-rpc-2.0+)
+                     (:result . ,result)
+                     (:id . ,id)))))
+               (error
+                (let ((error (cdr error)))
+                  ;; check the slots
+                  (unless (and (assoc :code error)
+                               (integerp (cdr (assoc :code error)))
+                               (assoc :message error)
+                               (stringp (cdr (assoc :message error))))
+                    (cerror "Just return it anyway."
+                            "Ill-formed JSON-RPC error, ~a, for version ~a"
+                            error *json-rpc-version*)))
+                (with-explicit-encoder
+                  (json:encode-json-to-string
+                   `(:object
+                     (:jsonrpc . ,+json-rpc-2.0+)
+                     (:error . ,error)
+                     (:id . ,id)))))
+               (t 
+                (error "Response must have either result or error."))))
+        (t (error "Unknown JSON-RPC protocol version ~a." *json-rpc-version*))))
 
 
 (defun make-json-rpc-error-object-1.1 (message &key code error-object)
-  "This code is based on the Working Draft 7 August 2006 of Json-rpc 1.1 specification. 
+  "This code is based on the Working Draft 7 August 2006 of Json-rpc 1.1 specification.
   http://json-rpc.org/wd/JSON-RPC-1-1-WD-20060807.html
 "
   (let ((eo `(:object
@@ -191,19 +194,18 @@ It has three properties:
               (:service-error -32000)))
       (unless (integerp code)
         (error "Code attribute of JSON-RPC object must be an integer.")))
-  (let ((eo `(:object
-              (:name . "JSONRPCError")
-              (:code . ,code)
-              (:message . ,message)))
-         data-obj)
+  (let (data-obj)
     (when error-object
       (push `(:error . ,error-object) data-obj))
     (when data
       (push `(:data ,data) data-obj))
-    (when data-obj
-      (cons ':data data-obj)
-      (setf eo (cons data-obj eo)))
-    eo))
+    (let ((eo `(:object
+                (:name . "JSONRPCError")
+                (:code . ,code)
+                (:message . ,message)
+                ,@(when data-obj
+                        `((:data . (:object ,@data-obj)))))))
+      eo)))
 
 (defun invoke-rpc (json-source)
   "A remote method is invoked by sending a request to a remote service. The request is a single object serialized using JSON.
@@ -216,67 +218,77 @@ It has three properties:
   (json-bind (method params id) json-source
     (invoke-rpc-parsed method params id)))
 
+(define-condition json-rpc-call-error (error)
+  ((encapsulated-error
+    :initarg :error
+    :reader encapsulated-error
+    )))
+
+
 (defun invoke-rpc-parsed (method params &optional id)
   (flet ((json-rpc-2.0 ()
            (equalp *json-rpc-version* +json-rpc-2.0+)))
-  (restart-case
-      (let ((func-type (gethash method *json-rpc-functions*)))
-        (if func-type
-            (destructuring-bind (func . type) func-type
-              (let ((retval (restart-case (apply func params)
-                              (use-value (value)
-                                value)))
-                    explicit-retval)
-                (when id
-                  ;; if there's no id, this is a notification, and no response should be sent
-                  ;; [2009/12/30:rpg]
-                  (setf explicit-retval
-                        (encode-json-rpc-value retval type)))
-                  (make-rpc-response :id id :result explicit-retval)))
+    (restart-case
+        (let ((func-type (gethash method *json-rpc-functions*)))
+          (if func-type
+              (handler-bind 
+                  ((error #'(lambda (err)
+                              (error 'json-rpc-call-error :error err))))
+                (destructuring-bind (func . type) func-type
+                  (let ((retval (restart-case (apply func params)
+                                  (use-value (value)
+                                    value)))
+                        explicit-retval)
+                    (when id
+                      ;; if there's no id, this is a notification, and no response should be sent
+                      ;; [2009/12/30:rpg]
+                      (setf explicit-retval
+                            (encode-json-rpc-value retval type)))
+                    (make-rpc-response :id id :result explicit-retval))))
 
-            (when id
-              (make-rpc-response :id id :error (cond ((json-rpc-2.0)
-                                                      (make-json-rpc-error-object-2.0
-                                                       :message (format nil "Procedure ~a not found." method)
-                                                       :code :method-not-found))
-                                                     (t
-                                                      (make-json-rpc-error-object-1.1
-                                                       (format nil "Procedure ~a not found." method))))))))
-
-    (send-error (message &optional code error-object)
-      :test (lambda (c) (declare (ignore c)) id)
-      (make-rpc-response :id id
-                         :error
-                         (if (json-rpc-2.0)
-                             (progn
-                               (unless code
-                                 (assert code (code)
-                                         "Error code is mandatory in JSON-RPC version 2.0."))
-                               (if error-object
-                                   (make-json-rpc-error-object-2.0
-                                    :message message
-                                    :code code
-                                    :error-object error-object)
-                                   (make-json-rpc-error-object-2.0
-                                    :message message
-                                    :code code)))
-                             (make-json-rpc-error-object-1.1 message
-                                                             :code code
-                                                             :error-object error-object))))
-    (send-error-object (error-object)
-      :test (lambda (c) (declare (ignore c)) id)
-      (make-rpc-response :id id :error error-object))
-    (send-nothing ()
-      nil)
-    (send-internal-error ()
-      :test (lambda (c) (declare (ignore c)) id)
-      (make-rpc-response :id id
-                         :error
-                         (if (json-rpc-2.0)
-                             (make-json-rpc-error-object-2.0
-                              :message "Service error"
-                              :code :service-error)
-                             (make-json-rpc-error-object-1.1 "Service error")))))))
+              (when id
+                (make-rpc-response :id id :error (cond ((json-rpc-2.0)
+                                                        (make-json-rpc-error-object-2.0
+                                                         :message (format nil "Procedure ~a not found." method)
+                                                         :code :method-not-found))
+                                                       (t
+                                                        (make-json-rpc-error-object-1.1
+                                                         (format nil "Procedure ~a not found." method))))))))
+      (send-error (message &optional code error-object)
+        :test (lambda (c) (declare (ignore c)) id)
+        (make-rpc-response :id id
+                           :error
+                           (if (json-rpc-2.0)
+                               (progn
+                                 (unless code
+                                   (assert code (code)
+                                           "Error code is mandatory in JSON-RPC version 2.0."))
+                                 (if error-object
+                                     (make-json-rpc-error-object-2.0
+                                      :message message
+                                      :code code
+                                      :error-object error-object)
+                                     (make-json-rpc-error-object-2.0
+                                      :message message
+                                      :code code)))
+                               (make-json-rpc-error-object-1.1 message
+                                                               :code code
+                                                               :error-object error-object))))
+      (send-error-object (error-object)
+        :test (lambda (c) (declare (ignore c)) id)
+        (make-rpc-response :id id :error error-object))
+      (send-nothing ()
+        nil)
+      (send-internal-error ()
+        :test (lambda (c) (declare (ignore c)) id)
+        (format t "~&invoking send-internal-error restart.~%")
+        (make-rpc-response :id id
+                           :error
+                           (if (json-rpc-2.0)
+                               (make-json-rpc-error-object-2.0
+                                :message "Service error"
+                                :code :service-error)
+                               (make-json-rpc-error-object-1.1 "Service error")))))))
 
 (defmacro def-restart (restart-name &rest (params))
   `(defun ,restart-name (,@params &optional condition)

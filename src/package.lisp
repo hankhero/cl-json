@@ -140,6 +140,9 @@
     #:+json-rpc-1.1+
     #:+json-rpc-2.0+
 
+    ;; condition 
+    #:json-rpc-call-error
+
     ;; declarations
     #:def-json-rpc-encoding
     #:defun-json-rpc
