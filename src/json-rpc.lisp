@@ -45,7 +45,7 @@ JSON-RPC version 1.1 or 2.0.")
     (error "New version of defun-json-rpc requires a TYPE argument"))
   `(progn
      (defun ,name ,lambda-list ,@body)
-     (export-as-json-rpc #',name (lisp-to-camel-case (symbol-name ',name))
+     (export-as-json-rpc ',name (lisp-to-camel-case (symbol-name ',name))
                          ,type)))
 
 (defgeneric json-rpc-encoding-p (keyword)
