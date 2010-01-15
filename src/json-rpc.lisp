@@ -52,6 +52,7 @@ JSON-RPC version 1.1 or 2.0.")
   (:documentation "Is KEYWORD a valid JSON-RPC value encoding?")
   (:method (keyword)
     "Default is no."
+    (declare (ignore keyword))
     nil)
   ;;; built-in methods
   (:method ((keyword (eql :guessing)))
@@ -62,9 +63,10 @@ JSON-RPC version 1.1 or 2.0.")
     t))
 
 (defgeneric encode-json-rpc-value (raw-value encoding)
-  (:documentation "Translate RAW-VALUE according to JSON-RPC 
+  (:documentation "Translate RAW-VALUE according to JSON-RPC
 value encoding ENCODING")
   (:method :before (raw-value encoding)
+    (declare (ignore raw-value))
     (unless (json-rpc-encoding-p encoding)
       (error "Invalid JSON-RPC encoding spec: ~a" encoding)))
   (:method (raw-value (encoding (eql :guessing)))
@@ -100,7 +102,7 @@ BODY should return the encoded value."
         (with-explicit-encoder
           (encode-json-to-string
            (cond ((null raw-val) +empty-array+)
-                 ((listp raw-val) 
+                 ((listp raw-val)
                   (cons :array raw-val))
                  ((arrayp raw-val)
                   raw-val)
@@ -156,7 +158,7 @@ It has three properties:
                      (:jsonrpc . ,+json-rpc-2.0+)
                      (:error . ,error)
                      (:id . ,id)))))
-               (t 
+               (t
                 (error "Response must have either result or error."))))
         (t (error "Unknown JSON-RPC protocol version ~a." *json-rpc-version*))))
 
@@ -225,13 +227,14 @@ It has three properties:
     )))
 
 
+;;; FIXME:  I discovered that if the METHOD argument is NIL, this just does nothing.  Not sure why... [2010/01/15:rpg]
 (defun invoke-rpc-parsed (method params &optional id)
   (flet ((json-rpc-2.0 ()
            (equalp *json-rpc-version* +json-rpc-2.0+)))
     (restart-case
         (let ((func-type (gethash method *json-rpc-functions*)))
           (if func-type
-              (handler-bind 
+              (handler-bind
                   ((error #'(lambda (err)
                               (error 'json-rpc-call-error :error err))))
                 (destructuring-bind (func . type) func-type
@@ -307,16 +310,16 @@ It has three properties:
 ;;;; up and incorporated this into json-rpc
 ;;;;
 ;;;;     (defmacro defun-schat-api (name params &body body)
-;;;;        ..... 
+;;;;        .....
 ;;;;         (setf (gethash ',name *json-rpc-method-definitions*)
 ;;;;          (list :parameters params))
-;;;;     
+;;;;
 ;;;;     (defun generate-smd (stream service-url)
-;;;;       (let ((json-data 
-;;;;     	   `(:object
+;;;;       (let ((json-data
+;;;;               `(:object
 ;;;;                  :service-type  "JSON-RPC"
 ;;;;                  :service-+url+ ,service-url
-;;;;     	     :methods
+;;;;                 :methods
 ;;;;                  (:list
 ;;;;                   ,@(loop for fname being each hash-key of *json-rpc-method-definitions*
 ;;;;                        using (hash-value description)
@@ -328,8 +331,8 @@ It has three properties:
 ;;;;                                                    collect `(:object :name ,param)))))))))
 ;;;;           (json:with-explicit-encoder
 ;;;;             (json:encode-json json-data stream))))
-;;;;     
+;;;;
 ;;;;     (defun generate-smd-file (filename)
 ;;;;       (with-open-file (s filename :direction :output :if-exists :supersede)
 ;;;;         (generate-smd s "/schat/json-rpc")))
-;;;;     
+;;;;
