@@ -392,5 +392,7 @@ characters in string S to STREAM."
   "Write the JSON representation of the number NR to STREAM."
   (typecase nr
     (integer (format stream "~d" nr))
-    (real (format stream "~f" nr))
+    (real (let* ((raw (format nil "~f" nr))
+                 (dpos (position #\d raw :test 'char-equal)))
+           (princ (subseq raw 0 dpos) stream)))
     (t (unencodable-value-error nr 'write-json-number))))
