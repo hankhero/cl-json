@@ -392,6 +392,7 @@ characters in string S to STREAM."
   "Write the JSON representation of the number NR to STREAM."
   (typecase nr
     (integer (format stream "~d" nr))
+    (rational (format stream "~f" nr))
     (real (let ((*read-default-float-format*
                  (etypecase nr
                    (short-float 'short-float)
