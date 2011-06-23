@@ -393,10 +393,11 @@ characters in string S to STREAM."
   (typecase nr
     (integer (format stream "~d" nr))
     (real (let ((*read-default-float-format*
-                 (typecase nr
-                   (long-float 'long-float)
-                   (double-float 'double-float)
+                 (etypecase nr
                    (short-float 'short-float)
-                   (t 'single-float))))
+                   (single-float 'single-float)
+                   (double-float 'double-float)
+                   (long-float 'long-float))))
             (format stream "~f" nr)))
     (t (unencodable-value-error nr 'write-json-number))))
+
