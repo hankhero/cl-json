@@ -32,6 +32,10 @@
   (is (string= "0" (encode-json-to-string 0)))
   (is (string= "13" (encode-json-to-string 13)))
   (is (string= "13.02" (encode-json-to-string 13.02)))
+  (is (string= "13.02" (encode-json-to-string 13.02D0)))
+  (is (string= "13.02" (encode-json-to-string 13.02L0)))
+  (is (string= "13.02" (encode-json-to-string 13.02S0)))
+  (is (string= "13.02" (encode-json-to-string 13.02E0)))
 
   (is-same-number 2e10)
   (is-same-number  -1.3234e-10)
