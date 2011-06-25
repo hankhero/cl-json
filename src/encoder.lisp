@@ -395,7 +395,8 @@ characters in string S to STREAM."
     (real (let ((*read-default-float-format*
                  (etypecase nr
                    (short-float 'short-float)
-                   ((rational single-float) 'single-float)
+                   (rational 'single-float)
+                   (single-float 'single-float)
                    (double-float 'double-float)
                    (long-float 'long-float))))
             (format stream "~f" nr)))
