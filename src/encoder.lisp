@@ -388,6 +388,19 @@ characters in string S to STREAM."
             (destructuring-bind (esc . (width . radix)) special
               (format stream "\\~C~V,V,'0R" esc radix width code)))))
 
+(eval-when (:compile-toplevel)
+    (if (subtypep 'long-float 'single-float)
+        ;; only one float type
+        (pushnew :cl-json-only-one-float-type *features*)
+        ;; else -- we check here only for the case where there are two
+        ;; float types, single- and double- --- we don't consider the
+        ;; "only single and short" case.  Could be added if necessary.
+        (progn
+          (when (subtypep 'single-float 'short-float)
+            (pushnew :cl-json-single-float-is-subsumed *features*))
+          (when (subtypep 'long-float 'double-float)
+            (pushnew :cl-json-double-float-is-subsumed *features*)))))
+
 (defun write-json-number (nr stream)
   "Write the JSON representation of the number NR to STREAM."
   (typecase nr
@@ -396,8 +409,13 @@ characters in string S to STREAM."
                  (etypecase nr
                    (short-float 'short-float)
                    (rational 'single-float)
+                   #-(or cl-json-single-float-is-subsumed
+                         cl-json-only-one-float-type)
                    (single-float 'single-float)
+                   #-(or cl-json-double-float-is-subsumed
+                         cl-json-only-one-float-type)
                    (double-float 'double-float)
+                   #-cl-json-only-one-float-type
                    (long-float 'long-float))))
             (format stream "~f" nr)))
     (t (unencodable-value-error nr 'write-json-number))))
