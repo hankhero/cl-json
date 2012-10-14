@@ -266,7 +266,8 @@ safe-symbols-parsing function here for a cure."
          (* 2.0 (expt 10.0 444)))))
 
 
-(defvar *json-test-files-path*)
+(defparameter *json-test-files-path*
+  (asdf:system-relative-pathname "cl-json.test" "t/"))
 
 (defun test-file (name)
   (make-pathname :name name :type "json" :defaults *json-test-files-path*))

@@ -20,7 +20,7 @@
 (defsystem :cl-json
   :name "cl-json"
   :description "JSON in Lisp. JSON (JavaScript Object Notation) is a lightweight data-interchange format."
-  :version "0.4.1"
+  :version "0.4.2"
   :maintainer "Henrik Hjelte <henrik@evahjelte.com>"
   :licence "MIT"
   :in-order-to ((test-op (test-op "cl-json.test")))
@@ -42,7 +42,7 @@
   :in-order-to ((test-op (load-op "cl-json.test")))
   :components ((:module :t
                :components ((:file "package")
-                            (:file "testjson" :depends-on ("package" "testdecoder" "testencoder" "testmisc"))
+                            ;; (:file "testjson" :depends-on ("package" "testdecoder" "testencoder" "testmisc"))
                             (:file "testmisc" :depends-on ("package" "testdecoder" "testencoder"))
                             (:file "testdecoder" :depends-on ("package"))
                             (:file "testencoder" :depends-on ("package"))))))
@@ -51,11 +51,10 @@
   (funcall (intern (symbol-name '#:run!) :it.bese.FiveAM)
            (intern (symbol-name '#:json) :json-test)))
 
-(defparameter *cl-json-directory* (make-pathname :directory (pathname-directory *load-truename*)))
+(defparameter *cl-json-directory*
+  (make-pathname :directory (pathname-directory *load-truename*)))
 
-(defmethod perform :after ((op load-op) (comp (eql (find-system :cl-json.test))))
-  (eval `(setf ,(intern (symbol-name '#:*json-test-files-path*) :json-test)
-               (merge-pathnames "t/" *cl-json-directory*))))
+
 
 
 
