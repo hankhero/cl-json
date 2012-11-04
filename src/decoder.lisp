@@ -418,45 +418,53 @@ double quote, calling string handlers as it goes."
   "Take a number token and convert it to a numeric value."
   ;; We can be reasonably sure that nothing but well-formed (both in
   ;; JSON and Lisp sense) number literals get to this point.
-  (handler-case (read-from-string token)
-    ((or reader-error #+ecl arithmetic-error #+allegro allegro-reader-numerical-overflow) (err)
-      ;; Typically, this happens when the exponent is too large for
-      ;; the number to be represented as a float -- a concealed (or,
-      ;; exceptionally in ECL, manifest) FLOATING-POINT-OVERFLOW.  At
-      ;; this point, the best thing is to parse the significand and
-      ;; exponent separately and combine them by numeric operations:
-      ;; either this causes the overflow error to be explicitly
-      ;; signaled, or else we might get some more or less
-      ;; non-nonsensical value.
-     (let ((f-marker (position #\. token :test #'char-equal))
+  (flet ((floatify (x)
+           (float x
+                  (ecase *read-default-float-format*
+                    (short-float 1.0s0)
+                    (single-float 1.0)
+                    (double-float 1.0d0)
+                    (long-float 1.0l0)))))
+    (let* ((negated (char-equal #\- (aref token 0)))
+           (token (string-left-trim '(#\-) token)))
+      (let ((f-marker (position #\. token :test #'char-equal))
             (e-marker (position #\e token :test #'char-equal)))
         (if (or e-marker f-marker)
             (let* ((int-part
-                    (subseq token 0 (or f-marker e-marker)))
+                     (subseq token 0 (or f-marker e-marker)))
                    (frac-part
-                    (if f-marker
-                        (subseq token (1+ f-marker) e-marker)
-                        "0"))
+                     (if f-marker
+                         (subseq token (1+ f-marker) e-marker)
+                         "0"))
                    (significand
-                    (+ (read-from-string int-part)
-                       (* (read-from-string frac-part)
-                          (expt 10 (- (length frac-part))))))
+                     (+ (parse-integer int-part)
+                        (* (parse-integer frac-part)
+                           (expt 10 (- (length frac-part))))))
                    (exponent
-                    (if e-marker
-                        (read-from-string (subseq token (1+ e-marker)))
-                        0)))
+                     (if e-marker
+                         (parse-integer (subseq token (1+ e-marker)))
+                         0)))
               (restart-case
-                  (* (float significand) (expt 10 (float exponent)))
+                  ;; FIXME: the below have to be double-float when that's the value of
+                  ;; *read-default-float-format*: short-float, single-float, double-float, long-float
+                  (let ((value
+                          (* (floatify significand) (expt 10 (floatify exponent)))))
+                    (if negated
+                        (- value)
+                        value))
                 (bignumber-string (&optional (prefix "BIGNUMBER:"))
                   :report "Return the number token prefixed as big number."
-                  (concatenate 'string prefix token))
+                  (concatenate 'string (if negated "-" "") prefix token))
                 (rational-approximation ()
                   :report "Use rational instead of float."
-                  (* significand (expt 10 exponent)))
+                  (let ((rat
+                          (* significand (expt 10 exponent))))
+                    (if negated (- rat) rat)))
                 (placeholder (value)
                   :report "Return a user-supplied placeholder value."
                   value)))
-            (error err))))))
+            (let ((int (parse-integer token)))
+              (if negated (- int) int)))))))
 
 (defun json-boolean-to-lisp (token)
   "Take a literal name token and convert it to a boolean value."
