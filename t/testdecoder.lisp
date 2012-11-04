@@ -241,29 +241,29 @@ safe-symbols-parsing function here for a cure."
        ,@body)))
 
 (test json-number
-  (is (= (decode-json-from-string "100") 100))
-  (is (= (decode-json-from-string "10.01") 10.01))
-  (is (= (decode-json-from-string "-2.3") -2.3))
-  (is (= (decode-json-from-string "-2.3e3") -2.3e3))
-  (is (= (decode-json-from-string "-3e4") -3e4))
-  (is (= (decode-json-from-string "3e4") 3e4))
+  (is (= 100 (decode-json-from-string "100")))
+  (is (= 10.01 (decode-json-from-string "10.01")))
+  (is (= -2.3 (decode-json-from-string "-2.3")))
+  (is (= -2.3e3 (decode-json-from-string "-2.3e3")))
+  (is (= -3e4 (decode-json-from-string "-3e4")))
+  (is (= 3e4 (decode-json-from-string "3e4")))
   (let ((*read-default-float-format* 'double-float))
-    (is (= (decode-json-from-string "2e40") 2d40)))
+    (is (= 2d40 (decode-json-from-string "2e40"))))
   #-(or (and sbcl darwin) (and allegro macosx))
-  (is (equalp (with-fp-overflow-handler
+  (is (equalp "BIG:2e444"
+              (with-fp-overflow-handler
                   (invoke-restart 'bignumber-string "BIG:")
-                (decode-json-from-string "2e444"))
-              "BIG:2e444"))
+                (decode-json-from-string "2e444"))))
   #-(or (and sbcl darwin) (and allegro macosx))
-  (is (= (with-fp-overflow-handler
+  (is (= (* 2 (expt 10 444))
+         (with-fp-overflow-handler
              (invoke-restart 'rational-approximation)
-           (decode-json-from-string "2e444"))
-         (* 2 (expt 10 444))))
+           (decode-json-from-string "2e444"))))
   ;; In SBCL on Darwin, constructing the float from parts by explicit
   ;; operations yields #.SB-EXT:SINGLE-FLOAT-POSITIVE-INFINITY.
   #+(and sbcl darwin)
-  (is (= (decode-json-from-string "2e444")
-         (* 2.0 (expt 10.0 444)))))
+  (is (= (* 2.0 (expt 10.0 444))
+         (decode-json-from-string "2e444"))))
 
 
 (defparameter *json-test-files-path*
