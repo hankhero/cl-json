@@ -9,12 +9,11 @@ testcases includes the JSON_checker tests.
 
 ## History
 
-2006 First version by Henrik Hjelte
-2007-2008 Version 0.3.1
-2009 Major update by Boris Smilga, adding lots of features. Version 0.4.0
-2009 New alternative encoder, the explicit sexp-encoder.
-2011 Json-rpc version 2 format by Robert Goldman. Version 0.4.1
-2012 Move from darcs to git.
+* 2006 First version by Henrik Hjelte
+* 2009 Major update by Boris Smilga, adding lots of features.
+* 2009 New alternative encoder, the explicit sexp-encoder.
+* 2011 Json-rpc version 2 format by Robert Goldman.
+* 2012 Move from darcs to git.
 
 ## Licence
 
