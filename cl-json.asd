@@ -1,5 +1,6 @@
 ;;; -*- lisp -*-
-;;; Copyright (c) 2006-2010 Henrik Hjelte
+;;; Copyright (c) 2006-2012 Henrik Hjelte
+;;; Copyright (c) 2008 Hans Hübner (code from the program YASON)
 ;;; All rights reserved.
 ;;; See the file LICENSE for terms of use and distribution.
 
@@ -20,8 +21,8 @@
 (defsystem :cl-json
   :name "cl-json"
   :description "JSON in Lisp. JSON (JavaScript Object Notation) is a lightweight data-interchange format."
-  :version "0.4.2"
-  :maintainer "Henrik Hjelte <henrik@evahjelte.com>"
+  :version "0.5.0"
+  :maintainer "Henrik Hjelte <henrik@henrikhjelte.com>"
   :licence "MIT"
   :in-order-to ((test-op (test-op "cl-json.test")))
   :components ((:static-file "cl-json.asd")
@@ -42,7 +43,6 @@
   :in-order-to ((test-op (load-op "cl-json.test")))
   :components ((:module :t
                :components ((:file "package")
-                            ;; (:file "testjson" :depends-on ("package" "testdecoder" "testencoder" "testmisc"))
                             (:file "testmisc" :depends-on ("package" "testdecoder" "testencoder"))
                             (:file "testdecoder" :depends-on ("package"))
                             (:file "testencoder" :depends-on ("package"))))))
@@ -53,8 +53,4 @@
 
 (defparameter *cl-json-directory*
   (make-pathname :directory (pathname-directory *load-truename*)))
-
-
-
-
 
