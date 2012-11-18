@@ -3,6 +3,7 @@
 ;;;; See the file LICENSE for terms of use and distribution.
 
 (defpackage :json
+  (:nicknames :cl-json)
   (:use :common-lisp)
   (:export
    ;; common.lisp
@@ -115,6 +116,7 @@
     #:compute-class-precedence-list
     #:finalize-inheritance
     ))
+
 
 (defpackage :json-rpc
   (:use :common-lisp :json)
