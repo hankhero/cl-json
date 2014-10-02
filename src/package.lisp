@@ -104,7 +104,7 @@
                 #+cmu #:clos-mop
                 #+sbcl #:sb-mop
                 #+(or clisp ecl scl lispworks) #:clos
-                #+allegro #:mop
+                #+(or allegro abcl) #:mop
     #:class-slots
     #:class-direct-slots
     #:class-direct-superclasses
