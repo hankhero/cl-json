@@ -15,7 +15,7 @@
 
 #-no-cl-json-clos ;; Does not work with SBCL 1.0.17, this is a way to turn it off
 (progn
-  #+(or mcl openmcl cmu sbcl clisp ecl scl lispworks allegro)
+  #+(or mcl openmcl cmu sbcl clisp ecl scl lispworks allegro abcl)
   (pushnew :cl-json-clos *features*))
 
 (defsystem :cl-json
