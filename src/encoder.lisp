@@ -195,27 +195,29 @@ STREAM as a Member of an Object (String : Value pair)."
 ;;; two differnet types of sexp based encoders below
 
 (defun encode-json-list-guessing-encoder (s stream)
-"Write the JSON representation of the list S to STREAM (or to
+  "Write the JSON representation of the list S to STREAM (or to
 *JSON-OUTPUT*).  If S is not encodable as a JSON Array, try to encode
 it as an Object (per ENCODE-JSON-ALIST)."
-  (handler-bind ((unencodable-value-error
-                  (lambda (e)
-                    (with-accessors ((datum type-error-datum)) e
-                      (if (and (consp datum)
-                               (not (consp (cdr datum)))
-                               (ignore-errors (every #'consp s)))
-                          (return-from encode-json-list-guessing-encoder
-                            (encode-json-alist s stream))
-                          (error e)))))
-                 (type-error
-                  (lambda (e)
-                    (declare (ignore e))
-                    (unencodable-value-error s 'encode-json))))
-    (write-string (with-output-to-string (temp)
-                    (with-array (temp)
-                      (mapcar (stream-array-member-encoder temp) s)))
-                  stream)
-    nil))
+  (restart-case
+      (handler-bind ((unencodable-value-error
+                       (lambda (e)
+                         (with-accessors ((datum type-error-datum)) e
+                           (if (and (consp datum)
+                                    (ignore-errors (every #'consp s)))
+                               (invoke-restart 'try-as-alist)
+                               (error e)))))
+                     (type-error
+                       (lambda (e)
+                         (declare (ignore e))
+                         (unencodable-value-error s 'encode-json))))
+        (write-string
+         (with-output-to-string (temp)
+           (with-array (temp)
+             (mapcar (stream-array-member-encoder temp) s)))
+         stream))
+    (try-as-alist ()
+      (encode-json-alist s stream)))
+  (values))
 
 (defun json-bool (value)
   "Intended for the JSON-EXPLICT-ENCODER. Converts a non-nil value
@@ -252,13 +254,13 @@ as itself, or a nil value as a json null-value"
       (:plist (encode-json-plist (cdr s) stream)))
     nil))
 
-(defparameter *json-list-encoder-fn* #'encode-json-list-guessing-encoder)
+(defparameter *json-list-encoder-fn* 'encode-json-list-guessing-encoder)
 
 (defun use-guessing-encoder ()
-  (setf *json-list-encoder-fn* #'encode-json-list-guessing-encoder))
+  (setf *json-list-encoder-fn* 'encode-json-list-guessing-encoder))
 
 (defun use-explicit-encoder ()
-  (setf *json-list-encoder-fn* #'encode-json-list-explicit-encoder))
+  (setf *json-list-encoder-fn* 'encode-json-list-explicit-encoder))
 
 (defmacro with-local-encoder (&body body)
   `(let (*json-list-encoder-fn*)
