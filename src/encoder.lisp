@@ -385,6 +385,11 @@ characters in string S to STREAM."
        do (write-char #\\ stream) (write-char special stream)
      else if (< #x1f code #x7f)
        do (write-char ch stream)
+     else if (< #x10000 code #x1FFFF)
+       do (let ((c (- code #x10000)))
+            (format stream "\\u~x\\u~x"
+                    (logior #xd800 (ash c -10))
+                    (logior #xdc00 (logand c #x3ff))))
      else
        do (let ((special '#.(rassoc-if #'consp +json-lisp-escaped-chars+)))
             (destructuring-bind (esc . (width . radix)) special
