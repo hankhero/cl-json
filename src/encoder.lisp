@@ -387,9 +387,9 @@ characters in string S to STREAM."
        do (write-char ch stream)
      else if (< #x10000 code #x1FFFF)
        do (let ((c (- code #x10000)))
-            (format stream "~C~C"
-                    (code-char (logior #xd800 (ash c -10)))
-                    (code-char (logior #xdc00 (logand c #x3ff)))))
+            (format stream "\\u~x\\u~x"
+                    (logior #xd800 (ash c -10))
+                    (logior #xdc00 (logand c #x3ff))))
      else
        do (let ((special '#.(rassoc-if #'consp +json-lisp-escaped-chars+)))
             (destructuring-bind (esc . (width . radix)) special
