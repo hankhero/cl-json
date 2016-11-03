@@ -375,6 +375,15 @@ STREAM (or to *JSON-OUTPUT*)."
   (write-char #\" stream)
   nil)
 
+(defun encode-json-surrogate-pairs-character (char)
+  "Write characters in range of surrogate pairs to JSON
+escape sequence, char -> string."
+  (let* ((c (char-code char))
+         (o (- c #x10000)))
+    (let ((c1 (logior #xD800 (ash o -10)))
+          (c2 (logior #xDC00 (logand o #x3FF))))
+      (format nil "\\u~X\\u~X" c1 c2))))
+
 (defun write-json-chars (s stream)
   "Write JSON representations (chars or escape sequences) of
 characters in string S to STREAM."
@@ -383,6 +392,8 @@ characters in string S to STREAM."
      with special
      if (setq special (car (rassoc ch +json-lisp-escaped-chars+)))
        do (write-char #\\ stream) (write-char special stream)
+     else if (<= #x10000 code #x10FFFF)
+       do (write-string (encode-json-surrogate-pairs-character ch) stream)
      else if (< #x1f code #x7f)
        do (write-char ch stream)
      else
