@@ -18,6 +18,7 @@
    #:*json-identifier-name-to-lisp*
    #:*lisp-identifier-name-to-json*
    #:*identifier-name-to-key*
+   #:+JSON-FALSE+
    ;; camel-case.lisp
    #:simplified-camel-case-to-lisp
    #:camel-case-to-lisp
