@@ -53,12 +53,13 @@ registered in the superclass."
   (declare (ignore superclass subclass))
   (values))
 
-(defmethod validate-superclass ((class fluid-class)
-                                (superclass standard-class))
-  "Any fluid class is also a standard class."
-  t)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+ (defmethod validate-superclass ((class fluid-class)
+                                 (superclass standard-class))
+   "Any fluid class is also a standard class."
+   t))
 
-(finalize-inheritance
+(eval-when (:compile-toplevel :load-toplevel :execute)
  (defclass fluid-object (standard-object) ()
    (:documentation "Any instance of a fluid class.")
    (:metaclass fluid-class)))

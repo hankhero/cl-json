@@ -390,7 +390,7 @@ characters in string S to STREAM."
             (destructuring-bind (esc . (width . radix)) special
               (format stream "\\~C~V,V,'0R" esc radix width code)))))
 
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :execute)
     (if (subtypep 'long-float 'single-float)
         ;; only one float type
         (pushnew :cl-json-only-one-float-type *features*)
