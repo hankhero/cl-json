@@ -516,7 +516,7 @@ list."
 
 (defun init-string-stream-accumulator ()
   "Initialize a string-stream accumulator."
-  (setq *accumulator* (make-string-output-stream)))
+  (setq *accumulator* (make-string-output-stream :element-type 'character)))
 
 (defun string-stream-accumulator-add (char)
   "Add CHAR to the end of the string-stream accumulator."
