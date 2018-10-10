@@ -411,3 +411,17 @@ safe-symbols-parsing function here for a cure."
         (is (equal (symbol-package (first-bound-slot-name x))
                    (find-package :keyword)))))))
 
+
+
+(test json-object-as-hash
+  (let ((input " { \"hello\" : \"hej\" ,
+               \"hi\" : [ { \"first\": \"tjena\" },
+                            17]
+               }"))
+    (with-decoder-simple-hash-semantics
+      (let* ((outer (decode-json-from-string input))
+             (list (gethash "hi" outer))
+             (inner (first list)))
+        (is (equalp (gethash "hello" outer) "hej"))
+        (is (equalp (gethash "first" inner) "tjena"))
+        (is (equalp (second list) 17))))))
