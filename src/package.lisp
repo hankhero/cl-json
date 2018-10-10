@@ -70,6 +70,8 @@
    #:with-decoder-simple-list-semantics
    #:set-decoder-simple-clos-semantics
    #:with-decoder-simple-clos-semantics
+   #:set-decoder-simple-hash-semantics
+   #:with-decoder-simple-hash-semantics
    ;; encoder.lisp
    #:*json-output*
    #:unencodable-value-error

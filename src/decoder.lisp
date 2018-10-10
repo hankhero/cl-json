@@ -563,6 +563,58 @@ is such as set by SET-DECODER-SIMPLE-LIST-SEMANTICS."
      (set-decoder-simple-list-semantics)
      ,@body))
 
+
+;; Decoding into hashes
+
+(defun decode-to-hash-start ()
+  (setf *accumulator* (make-hash-table :test #'equal)))
+
+(defun decode-to-hash-key (k)
+  (setf *accumulator-last* k))
+
+(defun decode-to-hash-value (v)
+  (setf (gethash *accumulator-last* *accumulator*) v
+        *accumulator-last* nil))
+
+(defun decode-to-hash-end ()
+  *accumulator*)
+
+(defun set-decoder-simple-hash-semantics ()
+  "Set the decoder semantics to the following:
+  * Strings and Numbers are decoded naturally, reals becoming floats.
+  * The literal name true is decoded to T, false and null to NIL.
+  * Arrays are decoded to sequences of the type *JSON-ARRAY-TYPE*.
+  * Objects are decoded to hashes (:TEST #'EQUAL).
+    Object keys can be converted by the function 
+    *JSON-IDENTIFIER-NAME-TO-LISP* (default #'IDENTITY)
+    but should still be returned as strings."
+  (set-custom-vars
+   :integer #'parse-number
+   :real #'parse-number
+   :boolean #'json-boolean-to-lisp
+   :beginning-of-array #'init-accumulator
+   :array-member #'accumulator-add
+   :end-of-array #'accumulator-get-sequence
+   :array-type 'list
+   :beginning-of-object #'decode-to-hash-start
+   :object-key #'decode-to-hash-key
+   :object-value #'decode-to-hash-value
+   :end-of-object #'decode-to-hash-end
+   :beginning-of-string #'init-string-stream-accumulator
+   :string-char #'string-stream-accumulator-add
+   :end-of-string #'string-stream-accumulator-get
+   :aggregate-scope (union *aggregate-scope-variables*
+                           '(*accumulator* *accumulator-last*))
+   :internal-decoder #'decode-json))
+
+(defmacro with-decoder-simple-hash-semantics (&body body)
+  "Execute BODY in a dynamic environement where the decoder semantics
+is such as set by SET-DECODER-SIMPLE-HASH-SEMANTICS."
+  `(with-shadowed-custom-vars
+     (set-decoder-simple-hash-semantics)
+     ,@body))
+
+
 ;;; The CLOS semantics
 
 #+cl-json-clos (progn
