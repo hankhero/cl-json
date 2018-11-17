@@ -155,28 +155,41 @@ return NIL."
              (escaped-char-dispatch c
                :code-handler
                  ((len rdx)
-                  (let ((code
-                         (let ((repr (make-string len)))
-                           (dotimes (i len)
-                             (setf (aref repr i) (read-char stream)))
-                           (handler-case (parse-integer repr :radix rdx)
-                             (parse-error ()
-                               (json-syntax-error stream esc-error-fmt
-                                                  (format nil "\\~C" c)
-                                                  repr))))))
-                    (restart-case
-                        (or (and (< code char-code-limit) (code-char code))
-                            (error 'no-char-for-code :code code))
-                      (substitute-char (char)
-                        :report "Substitute another char."
-                        :interactive
-                        (lambda ()
-                          (format *query-io* "Char: ")
-                          (list (read-char *query-io*)))
-                        char)
-                      (pass-code ()
-                        :report "Pass the code to char handler."
-                        code))))
+                  (flet ((parse-code ()
+                           (let ((repr (make-string len)))
+                             (dotimes (i len)
+                               (setf (aref repr i) (read-char stream)))
+                             (handler-case (parse-integer repr :radix rdx)
+                               (parse-error ()
+                                 (json-syntax-error stream esc-error-fmt
+                                                    (format nil "\\~C" c)
+                                                    repr))))))
+                    (let ((code (parse-code)))
+                      (when (high-surrogate-code-p code)
+                        ;; if code falls in the surrogate code range, the next
+                        ;; char is its low surrogate again encoded as "\uXXXX"
+                        (assert (and (char= (read-char stream) #\\)
+                                     (char= (read-char stream) c))
+                                nil
+                                "Expected start of low surrogate code sequence")
+                        (let ((next (parse-code)))
+                          (assert (low-surrogate-code-p next)
+                                  nil
+                                  "Expected low surrogate code but instead got ~A" next)
+                          (setf code (surrogate-pair-to-code (cons code next)))))
+                      (restart-case
+                          (or (and (< code char-code-limit) (code-char code))
+                              (error 'no-char-for-code :code code))
+                        (substitute-char (char)
+                          :report "Substitute another char."
+                          :interactive
+                          (lambda ()
+                            (format *query-io* "Char: ")
+                            (list (read-char *query-io*)))
+                          char)
+                        (pass-code ()
+                          :report "Pass the code to char handler."
+                          code)))))
                  :default-handler
                    (if *use-strict-json-rules*
                        (json-syntax-error stream esc-error-fmt "\\" c)
