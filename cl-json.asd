@@ -38,7 +38,7 @@
                              (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder"))))))
 
 (defsystem :cl-json.test
-  :depends-on (:cl-json :fiveam )
+  :depends-on (:cl-json :cl-unicode :fiveam)
   ;; newer ASDF versions have this implicitly, but I know of no good way to detect this. [2010/01/02:rpg]
   :in-order-to ((test-op (load-op "cl-json.test")))
   :components ((:module :t
