@@ -388,7 +388,13 @@ characters in string S to STREAM."
      else
        do (let ((special '#.(rassoc-if #'consp +json-lisp-escaped-chars+)))
             (destructuring-bind (esc . (width . radix)) special
-              (format stream "\\~C~V,V,'0R" esc radix width code)))))
+              (flet ((write-code (code)
+                       (format stream "\\~C~V,V,'0R" esc radix width code)))
+                (if (bmp-code-p code)
+                    (write-code code)
+                    (let ((pair (surrogate-pair code)))
+                      (write-code (car pair))
+                      (write-code (cdr pair)))))))))
 
 (eval-when (:compile-toplevel)
     (if (subtypep 'long-float 'single-float)

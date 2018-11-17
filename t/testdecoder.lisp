@@ -411,3 +411,18 @@ safe-symbols-parsing function here for a cure."
         (is (equal (symbol-package (first-bound-slot-name x))
                    (find-package :keyword)))))))
 
+(test non-ascii-char-decoding
+  (is (equal `((:foo . ,(string (cl-unicode:character-named "Copyright Sign"))))
+             (with-decoder-simple-list-semantics
+               (decode-json-from-string "{\"foo\":\"\\u00A9\"}")))))
+
+(test non-bmp-char-decoding
+  (is (equal `((:foo . ,(string (cl-unicode:character-named "Grinning Face"))))
+             (with-decoder-simple-list-semantics
+               (decode-json-from-string "{\"foo\":\"\\uD83D\\uDE00\"}"))))
+  (signals error
+    (with-decoder-simple-list-semantics
+      (decode-json-from-string "{\"foo\":\"\\uD83Dabc\"}")))
+  (signals error
+    (with-decoder-simple-list-semantics
+      (decode-json-from-string "{\"foo\":\"\\uD83D\\xDE00\"}"))))

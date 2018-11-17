@@ -470,3 +470,12 @@
       (is (string= json-bar
 "{\"method\":\"fooBarCheck\",\"id\":0,\"params\":{\"bar\":{\"bar\":true},\"isFoo\":false,\"isBar\":true}}")))))
 
+(test non-ascii-char-encoding
+  (is (string= "{\"foo\":\"\\u00A9\"}"
+               (with-explicit-encoder
+                 (json:encode-json-to-string (list :object "foo" (string (cl-unicode:character-named "Copyright Sign"))))))))
+
+(test non-bmp-char-encoding
+  (is (string= "{\"foo\":\"\\uD83D\\uDE00\"}"
+               (with-explicit-encoder
+                 (json:encode-json-to-string (list :object "foo" (string (cl-unicode:character-named "Grinning Face"))))))))

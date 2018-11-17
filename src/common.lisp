@@ -68,6 +68,24 @@
 Strings.  If nil, translate any such sequence to the char after
 slash.")
 
+(defun bmp-code-p (code)
+  (< code #x10000))
+
+(defun high-surrogate-code-p (code)
+  (<= #xD800 code #xDBFF))
+
+(defun low-surrogate-code-p (code)
+  (<= #xDC00 code #xDFFF))
+
+(defun surrogate-pair (code)
+  (let ((reduced (- code #x10000)))
+    (cons (+ #xD800 (ldb (byte 10 10) reduced))
+          (+ #xDC00 (ldb (byte 10  0) reduced)))))
+
+(defun surrogate-pair-to-code (pair)
+  (+ (+ (ash (- (car pair) #xD800) 10)
+        (- (cdr pair) #xDC00))
+     #x10000))
 
 ;;; Symbols
 
