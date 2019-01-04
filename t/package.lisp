@@ -6,6 +6,7 @@
                 #+sbcl #:sb-mop
                 #+(or clisp ecl scl lispworks) #:clos
                 #+(or allegro abcl) #:mop
+		#+genera #:clos-internals
     #:finalize-inheritance))
 
 (in-package :json-test)
