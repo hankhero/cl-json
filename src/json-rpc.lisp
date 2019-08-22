@@ -1,3 +1,4 @@
+;;;; -*- Mode: LISP; Syntax: ANSI-COMMON-LISP; Base: 10 ; Package: JSON-RPC -*-
 ;;;; Copyright (c) 2006-2008 Henrik Hjelte
 ;;;; Modifications copyright (c) 2009 by Robert P. Goldman and SIFT, LLC.
 ;;;; All rights reserved.

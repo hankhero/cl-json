@@ -1,3 +1,4 @@
+;;;; -*- Mode: LISP; Base: 10; Syntax: ANSI-Common-lisp; Package: CL-USER -*-
 ;;;; Copyright (c) 2006-2008 Henrik Hjelte
 ;;;; All rights reserved.
 ;;;; See the file LICENSE for terms of use and distribution.
@@ -105,6 +106,7 @@
                 #+sbcl #:sb-mop
                 #+(or clisp ecl scl lispworks) #:clos
                 #+(or allegro abcl) #:mop
+		#+genera #:clos-internals
     #:class-slots
     #:class-direct-slots
     #:class-direct-superclasses
@@ -114,6 +116,7 @@
     #:validate-superclass
     #:class-precedence-list
     #:compute-class-precedence-list
+    #:ensure-class
     #:finalize-inheritance
     ))
 

@@ -1,3 +1,4 @@
+;;;; -*- Mode: LISP; Syntax: ANSI-COMMON-LISP; Base: 10; Package: JSON -*-
 (in-package :json)
 
 ;;; Custom variables

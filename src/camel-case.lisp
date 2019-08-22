@@ -1,3 +1,4 @@
+;;;; -*- Mode: LISP; Syntax: ANSI-COMMON-LISP; Base: 10; Package: JSON -*-
 ;;;; Copyright (c) 2006-2008 Henrik Hjelte
 ;;;; All rights reserved.
 ;;;; See the file LICENSE for terms of use and distribution.
