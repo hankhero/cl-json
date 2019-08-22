@@ -1,3 +1,4 @@
+;;;; -*- Mode: LISP; Base: 10; Syntax: ANSI-Common-lisp; Package: CL-USER -*-
 ;;;; Copyright (c) 2006-2008 Henrik Hjelte
 ;;;; All rights reserved.
 ;;;; See the file LICENSE for terms of use and distribution.
