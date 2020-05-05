@@ -283,8 +283,8 @@ environment with the given CUSTOMIZATIONS."
 (defun decode-json-from-string (json-string)
   "Read a JSON Value from JSON-STRING and return the corresponding
 Lisp value."
-  (with-input-from-string (stream json-string)
-    (decode-json stream)))
+  (if json-string (with-input-from-string (stream json-string)
+    (decode-json stream))))
 
 (defun decode-json-from-source (source &optional (decoder 'decode-json))
   "Decode a JSON Value from SOURCE using the value of DECODER (default
