@@ -27,7 +27,7 @@ jobs:
           - clasp
           - clisp
           - ecl
-          - lispworks
+          # - lispworks  Lispworks Roswell install is broken
           - mkcl
 
     steps:
