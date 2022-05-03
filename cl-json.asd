@@ -51,6 +51,5 @@
            (intern (symbol-name '#:json) :json-test)))
 
 (defparameter *cl-json-directory*
-  (system-definition-pathname "cl-json")
-  (make-pathname :directory (pathname-directory *load-truename*)))
+  (system-relative-pathname "cl-json" ""))
 
