@@ -25,12 +25,7 @@ jobs:
           - sbcl
 
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Checkout submodules
-      shell: bash
-      run: |
-        git submodule update --init --recursive
+    - uses: actions/checkout@v3
 
     # Lisp setup copied from here: https://github.com/3b/ci-example/blob/master/.github/workflows/CI.yml
     - name: cache .roswell
@@ -56,7 +51,7 @@ jobs:
         curl -L https://raw.githubusercontent.com/roswell/roswell/a8fd8a3c33078d6f06e6cda9d099dcba6fbefcb7/scripts/install-for-ci.sh | sh
 
     # Compile first in a separate step to make the test output more readable
-    - name: compile lisp
+    - name: compile cl-json library
       shell: bash
       run: |
         ros -l $PWD/compile-cl-json.lisp
