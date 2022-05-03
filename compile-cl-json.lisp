@@ -3,9 +3,7 @@
 
 (in-package :compile-cl-json)
 
-(or (or (ignore-errors (require :asdf))
-        (find-package "ASDF"))
-    (load "asdf"))
+(require :asdf)
 
 (asdf:initialize-source-registry '(:source-registry (:directory :here)
                                    :inherit-configuration))
