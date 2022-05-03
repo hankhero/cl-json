@@ -23,6 +23,12 @@ jobs:
         lisp:
           - ccl
           - sbcl
+          - allegro
+          - clasp
+          - clisp
+          - ecl
+          - lispworks
+          - mkcl
 
     steps:
     - uses: actions/checkout@v3
