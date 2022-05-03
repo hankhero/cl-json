@@ -24,7 +24,7 @@ jobs:
           - ccl
           - sbcl
           - allegro
-          - clasp
+          # - clasp
           - clisp
           - ecl
           # - lispworks  Lispworks Roswell install is broken
