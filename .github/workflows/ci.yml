@@ -1,0 +1,67 @@
+name: CI
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  test:
+    # The type of runner that the job will run on
+    runs-on: ${{matrix.os}}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        lisp:
+          - ccl
+          - sbcl
+          - allegro
+          # - clasp
+          # - clisp
+          - ecl
+          # - lispworks  Lispworks Roswell install is broken
+          - mkcl
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # Lisp setup copied from here: https://github.com/3b/ci-example/blob/master/.github/workflows/CI.yml
+    - name: cache .roswell
+      id: cache-dot-roswell
+      uses: actions/cache@v1
+      with:
+        path: ~/.roswell
+        key: ${{ runner.os }}-dot-roswell-${{ matrix.lisp }}-${{ hashFiles('**/*.asd') }}
+        restore-keys: |
+          ${{ runner.os }}-dot-roswell-${{ matrix.lisp }}-
+          ${{ runner.os }}-dot-roswell-
+
+    - name: install roswell
+      shell: bash
+      # always run install, since it does some global installs and setup that isn't cached
+      env:
+       LISP: ${{ matrix.lisp }}
+      # Use a previous release of Roswell to avoid error encountered
+      # due to libcurl3 not being available.
+      # Source of fix: https://github.com/avodonosov/drakma/commit/fbba29181ba2962f5031da581bd2de4dac98733d
+      run: |
+        sudo apt-get install -y libcurl4
+        curl -L https://raw.githubusercontent.com/roswell/roswell/release/scripts/install-for-ci.sh | sh
+
+    # Compile first in a separate step to make the test output more readable
+    - name: compile cl-json library
+      shell: bash
+      run: |
+        ros -l $PWD/compile-cl-json.lisp
+    - name: tests
+      shell: bash
+      run: |
+        ros -l $PWD/test-cl-json.lisp

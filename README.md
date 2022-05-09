@@ -14,6 +14,7 @@ testcases includes the JSON_checker tests.
 * 2009 New alternative encoder, the explicit sexp-encoder.
 * 2011 Json-rpc version 2 format by Robert Goldman.
 * 2012 Move from darcs to git.
+* 2020 Forking to sharplispers to take project into community maintenance.
 
 ## Licence
 

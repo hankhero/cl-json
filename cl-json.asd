@@ -22,9 +22,10 @@
   :name "cl-json"
   :description "JSON in Lisp. JSON (JavaScript Object Notation) is a lightweight data-interchange format."
   :version "0.5.0"
-  :maintainer "Henrik Hjelte <henrik@henrikhjelte.com>"
+  :author "Henrik Hjelte <henrik@henrikhjelte.com>"
+  :maintainer "Robert P. Goldman <rpgoldman@sift.net>"
   :licence "MIT"
-  :in-order-to ((test-op (test-op "cl-json.test")))
+  :in-order-to ((test-op (test-op "cl-json/test")))
   :components ((:static-file "cl-json.asd")
                (:module :src
                 :components ((:file "package")
@@ -37,20 +38,18 @@
                              (:file "utils" :depends-on ("decoder" "encoder"))
                              (:file "json-rpc" :depends-on ("package" "common" "utils" "encoder" "decoder"))))))
 
-(defsystem :cl-json.test
+(defsystem :cl-json/test
   :depends-on (:cl-json :fiveam )
-  ;; newer ASDF versions have this implicitly, but I know of no good way to detect this. [2010/01/02:rpg]
-  :in-order-to ((test-op (load-op "cl-json.test")))
   :components ((:module :t
                :components ((:file "package")
                             (:file "testmisc" :depends-on ("package" "testdecoder" "testencoder"))
                             (:file "testdecoder" :depends-on ("package"))
                             (:file "testencoder" :depends-on ("package"))))))
 
-(defmethod perform ((op test-op) (c (eql (find-system :cl-json.test))))
+(defmethod perform ((op test-op) (c (eql (find-system :cl-json/test))))
   (funcall (intern (symbol-name '#:run!) :it.bese.FiveAM)
            (intern (symbol-name '#:json) :json-test)))
 
 (defparameter *cl-json-directory*
-  (make-pathname :directory (pathname-directory *load-truename*)))
+  (system-relative-pathname "cl-json" ""))
 
